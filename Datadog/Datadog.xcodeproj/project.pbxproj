@@ -110,6 +110,46 @@
 		9EF49F1224476D96004F2CA0 /* LoggingBenchmarkTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9E2FB27B24476707001C9B7B /* LoggingBenchmarkTests.swift */; };
 		9EF49F1324476D96004F2CA0 /* LoggingIntegrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9E2FB27A24476707001C9B7B /* LoggingIntegrationTests.swift */; };
 		9EF49F1424476DD6004F2CA0 /* LogMatcher.swift in Sources */ = {isa = PBXBuildFile; fileRef = 61133C432423990D00786299 /* LogMatcher.swift */; };
+		E399470B246DF682009B5C67 /* Datadog.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E3A4E0DE246C80940088D224 /* Datadog.framework */; };
+		E3994712246DF936009B5C67 /* LogsMocks.swift in Sources */ = {isa = PBXBuildFile; fileRef = 61133C1A2423990D00786299 /* LogsMocks.swift */; };
+		E3994715246DF936009B5C67 /* DatadogMocks.swift in Sources */ = {isa = PBXBuildFile; fileRef = 61133C1F2423990D00786299 /* DatadogMocks.swift */; };
+		E3994716246DF936009B5C67 /* DatadogPrivateMocks.swift in Sources */ = {isa = PBXBuildFile; fileRef = 61C3638224361BE200C4D4E6 /* DatadogPrivateMocks.swift */; };
+		E3994717246DF936009B5C67 /* FoundationMocks.swift in Sources */ = {isa = PBXBuildFile; fileRef = 61133C202423990D00786299 /* FoundationMocks.swift */; };
+		E3994718246DF936009B5C67 /* ServerMock.swift in Sources */ = {isa = PBXBuildFile; fileRef = 61C3646F243B5C8300C4D4E6 /* ServerMock.swift */; };
+		E3994719246DF936009B5C67 /* LoggingFeatureMocks.swift in Sources */ = {isa = PBXBuildFile; fileRef = 61FB222C244A21ED00902D19 /* LoggingFeatureMocks.swift */; };
+		E399471A246DF936009B5C67 /* DatadogTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 61133C412423990D00786299 /* DatadogTests.swift */; };
+		E399471B246DF936009B5C67 /* DatadogConfigurationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 61F8CC082469295500FE2908 /* DatadogConfigurationTests.swift */; };
+		E399471C246DF936009B5C67 /* LoggerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 61133C382423990D00786299 /* LoggerTests.swift */; };
+		E399471D246DF936009B5C67 /* LoggerBuilderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 61B558CE2469561C001460D3 /* LoggerBuilderTests.swift */; };
+		E399471E246DF936009B5C67 /* PerformancePresetTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 61345612244756E300E7DA6B /* PerformancePresetTests.swift */; };
+		E399471F246DF936009B5C67 /* MobileDeviceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 61133C232423990D00786299 /* MobileDeviceTests.swift */; };
+		E3994720246DF936009B5C67 /* NetworkConnectionInfoProviderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 61133C242423990D00786299 /* NetworkConnectionInfoProviderTests.swift */; };
+		E3994721246DF936009B5C67 /* BatteryStatusProviderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 61133C252423990D00786299 /* BatteryStatusProviderTests.swift */; };
+		E3994723246DF936009B5C67 /* FilesOrchestratorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 61133C2A2423990D00786299 /* FilesOrchestratorTests.swift */; };
+		E3994724246DF936009B5C67 /* FileWriterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 61133C292423990D00786299 /* FileWriterTests.swift */; };
+		E3994725246DF936009B5C67 /* FileReaderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 61133C282423990D00786299 /* FileReaderTests.swift */; };
+		E3994726246DF936009B5C67 /* FileTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 61133C2C2423990D00786299 /* FileTests.swift */; };
+		E3994727246DF936009B5C67 /* DirectoryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 61133C2D2423990D00786299 /* DirectoryTests.swift */; };
+		E3994728246DF936009B5C67 /* DataUploadWorkerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 61133C2F2423990D00786299 /* DataUploadWorkerTests.swift */; };
+		E3994729246DF936009B5C67 /* DataUploadConditionsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 61133C302423990D00786299 /* DataUploadConditionsTests.swift */; };
+		E399472A246DF936009B5C67 /* LogsUploadDelayTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 61133C312423990D00786299 /* LogsUploadDelayTests.swift */; };
+		E399472B246DF936009B5C67 /* DataUploaderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 61133C322423990D00786299 /* DataUploaderTests.swift */; };
+		E399472C246DF936009B5C67 /* HTTPHeadersTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 61133C332423990D00786299 /* HTTPHeadersTests.swift */; };
+		E399472D246DF936009B5C67 /* HTTPClientTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 61133C342423990D00786299 /* HTTPClientTests.swift */; };
+		E399472E246DF936009B5C67 /* LoggingFeatureTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 61FB222F244E1BE900902D19 /* LoggingFeatureTests.swift */; };
+		E399472F246DF936009B5C67 /* LogBuilderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 61133C3B2423990D00786299 /* LogBuilderTests.swift */; };
+		E3994730246DF936009B5C67 /* LogSanitizerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 61133C3C2423990D00786299 /* LogSanitizerTests.swift */; };
+		E3994731246DF936009B5C67 /* LogConsoleOutputTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 61133C3E2423990D00786299 /* LogConsoleOutputTests.swift */; };
+		E3994732246DF936009B5C67 /* LogUtilityOutputsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 61133C3F2423990D00786299 /* LogUtilityOutputsTests.swift */; };
+		E3994733246DF936009B5C67 /* LogFileOutputTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 61133C402423990D00786299 /* LogFileOutputTests.swift */; };
+		E3994734246DF936009B5C67 /* InternalLoggersTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 61133C362423990D00786299 /* InternalLoggersTests.swift */; };
+		E3994735246DF936009B5C67 /* SwiftExtensionsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9E36D92124373EA700BFBDB7 /* SwiftExtensionsTests.swift */; };
+		E3994736246DF936009B5C67 /* EncodingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9E58E8E224615EDA008E5063 /* EncodingTests.swift */; };
+		E3994737246DF936009B5C67 /* ObjcExceptionHandlerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 61C3637F2436164B00C4D4E6 /* ObjcExceptionHandlerTests.swift */; };
+		E3994738246DF936009B5C67 /* LogMatcher.swift in Sources */ = {isa = PBXBuildFile; fileRef = 61133C432423990D00786299 /* LogMatcher.swift */; };
+		E3994739246DF936009B5C67 /* SwiftExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 61133C452423990D00786299 /* SwiftExtensions.swift */; };
+		E399473A246DF936009B5C67 /* TestsDirectory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 61133C462423990D00786299 /* TestsDirectory.swift */; };
+		E399473B246DF936009B5C67 /* DatadogExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 61133C472423990D00786299 /* DatadogExtensions.swift */; };
 		E3A4E0E7246C82940088D224 /* Datadog.h in Headers */ = {isa = PBXBuildFile; fileRef = 61133B85242393DE00786299 /* Datadog.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		E3A4E0E8246C82C10088D224 /* ObjcExceptionHandler.h in Headers */ = {isa = PBXBuildFile; fileRef = 9E68FB54244707FD0013A8AA /* ObjcExceptionHandler.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		E3A4E0E9246C83880088D224 /* Datadog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 61133BBB2423979B00786299 /* Datadog.swift */; };
@@ -181,6 +221,13 @@
 			proxyType = 1;
 			remoteGlobalIDString = 61133B81242393DE00786299;
 			remoteInfo = Datadog;
+		};
+		E399470C246DF682009B5C67 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 61133B79242393DE00786299 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = E3A4E0DD246C80940088D224;
+			remoteInfo = Datadog_macOS;
 		};
 /* End PBXContainerItemProxy section */
 
@@ -307,6 +354,7 @@
 		9EA6A538244897A900621535 /* LoggingIOBenchmarkTests.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = LoggingIOBenchmarkTests.swift; sourceTree = "<group>"; };
 		9EF49F1624476FBD004F2CA0 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		9EF49F17244770AD004F2CA0 /* DatadogIntegrationTests.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = DatadogIntegrationTests.xcconfig; sourceTree = "<group>"; };
+		E3994706246DF682009B5C67 /* DatadogTests_macOS.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = DatadogTests_macOS.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		E3A4E0DE246C80940088D224 /* Datadog.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Datadog.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -343,6 +391,14 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		E3994703246DF682009B5C67 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				E399470B246DF682009B5C67 /* Datadog.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		E3A4E0DB246C80940088D224 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -375,6 +431,7 @@
 				61133BF0242397DA00786299 /* DatadogObjc.framework */,
 				9E2FB2772447660E001C9B7B /* DatadogIntegrationTests.xctest */,
 				E3A4E0DE246C80940088D224 /* Datadog.framework */,
+				E3994706246DF682009B5C67 /* DatadogTests_macOS.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -931,6 +988,24 @@
 			productReference = 9E2FB2772447660E001C9B7B /* DatadogIntegrationTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
+		E3994705246DF682009B5C67 /* DatadogTests_macOS */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = E3994711246DF682009B5C67 /* Build configuration list for PBXNativeTarget "DatadogTests_macOS" */;
+			buildPhases = (
+				E3994702246DF682009B5C67 /* Sources */,
+				E3994703246DF682009B5C67 /* Frameworks */,
+				E3994704246DF682009B5C67 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				E399470D246DF682009B5C67 /* PBXTargetDependency */,
+			);
+			name = DatadogTests_macOS;
+			productName = DatadogTests_macOS;
+			productReference = E3994706246DF682009B5C67 /* DatadogTests_macOS.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 		E3A4E0DD246C80940088D224 /* Datadog_macOS */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = E3A4E0E6246C80940088D224 /* Build configuration list for PBXNativeTarget "Datadog_macOS" */;
@@ -968,6 +1043,9 @@
 					61133BEF242397DA00786299 = {
 						CreatedOnToolsVersion = 11.3.1;
 					};
+					E3994705246DF682009B5C67 = {
+						CreatedOnToolsVersion = 11.3.1;
+					};
 					E3A4E0DD246C80940088D224 = {
 						CreatedOnToolsVersion = 11.3.1;
 					};
@@ -991,6 +1069,7 @@
 				61133B8A242393DE00786299 /* DatadogTests */,
 				9E2FB2412447660E001C9B7B /* DatadogIntegrationTests */,
 				E3A4E0DD246C80940088D224 /* Datadog_macOS */,
+				E3994705246DF682009B5C67 /* DatadogTests_macOS */,
 			);
 		};
 /* End PBXProject section */
@@ -1018,6 +1097,13 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		9E2FB2732447660E001C9B7B /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		E3994704246DF682009B5C67 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -1217,6 +1303,52 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		E3994702246DF682009B5C67 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				E3994712246DF936009B5C67 /* LogsMocks.swift in Sources */,
+				E3994715246DF936009B5C67 /* DatadogMocks.swift in Sources */,
+				E3994716246DF936009B5C67 /* DatadogPrivateMocks.swift in Sources */,
+				E3994717246DF936009B5C67 /* FoundationMocks.swift in Sources */,
+				E3994718246DF936009B5C67 /* ServerMock.swift in Sources */,
+				E3994719246DF936009B5C67 /* LoggingFeatureMocks.swift in Sources */,
+				E399471A246DF936009B5C67 /* DatadogTests.swift in Sources */,
+				E399471B246DF936009B5C67 /* DatadogConfigurationTests.swift in Sources */,
+				E399471C246DF936009B5C67 /* LoggerTests.swift in Sources */,
+				E399471D246DF936009B5C67 /* LoggerBuilderTests.swift in Sources */,
+				E399471E246DF936009B5C67 /* PerformancePresetTests.swift in Sources */,
+				E399471F246DF936009B5C67 /* MobileDeviceTests.swift in Sources */,
+				E3994720246DF936009B5C67 /* NetworkConnectionInfoProviderTests.swift in Sources */,
+				E3994721246DF936009B5C67 /* BatteryStatusProviderTests.swift in Sources */,
+				E3994723246DF936009B5C67 /* FilesOrchestratorTests.swift in Sources */,
+				E3994724246DF936009B5C67 /* FileWriterTests.swift in Sources */,
+				E3994725246DF936009B5C67 /* FileReaderTests.swift in Sources */,
+				E3994726246DF936009B5C67 /* FileTests.swift in Sources */,
+				E3994727246DF936009B5C67 /* DirectoryTests.swift in Sources */,
+				E3994728246DF936009B5C67 /* DataUploadWorkerTests.swift in Sources */,
+				E3994729246DF936009B5C67 /* DataUploadConditionsTests.swift in Sources */,
+				E399472A246DF936009B5C67 /* LogsUploadDelayTests.swift in Sources */,
+				E399472B246DF936009B5C67 /* DataUploaderTests.swift in Sources */,
+				E399472C246DF936009B5C67 /* HTTPHeadersTests.swift in Sources */,
+				E399472D246DF936009B5C67 /* HTTPClientTests.swift in Sources */,
+				E399472E246DF936009B5C67 /* LoggingFeatureTests.swift in Sources */,
+				E399472F246DF936009B5C67 /* LogBuilderTests.swift in Sources */,
+				E3994730246DF936009B5C67 /* LogSanitizerTests.swift in Sources */,
+				E3994731246DF936009B5C67 /* LogConsoleOutputTests.swift in Sources */,
+				E3994732246DF936009B5C67 /* LogUtilityOutputsTests.swift in Sources */,
+				E3994733246DF936009B5C67 /* LogFileOutputTests.swift in Sources */,
+				E3994734246DF936009B5C67 /* InternalLoggersTests.swift in Sources */,
+				E3994735246DF936009B5C67 /* SwiftExtensionsTests.swift in Sources */,
+				E3994736246DF936009B5C67 /* EncodingTests.swift in Sources */,
+				E3994737246DF936009B5C67 /* ObjcExceptionHandlerTests.swift in Sources */,
+				E3994738246DF936009B5C67 /* LogMatcher.swift in Sources */,
+				E3994739246DF936009B5C67 /* SwiftExtensions.swift in Sources */,
+				E399473A246DF936009B5C67 /* TestsDirectory.swift in Sources */,
+				E399473B246DF936009B5C67 /* DatadogExtensions.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		E3A4E0DA246C80940088D224 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -1285,6 +1417,11 @@
 			isa = PBXTargetDependency;
 			target = 61133B81242393DE00786299 /* Datadog */;
 			targetProxy = 9E2FB2432447660E001C9B7B /* PBXContainerItemProxy */;
+		};
+		E399470D246DF682009B5C67 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = E3A4E0DD246C80940088D224 /* Datadog_macOS */;
+			targetProxy = E399470C246DF682009B5C67 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -1750,6 +1887,67 @@
 			};
 			name = Integration;
 		};
+		E399470E246DF682009B5C67 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				INFOPLIST_FILE = TargetSupport/DatadogTests/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 10.14;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.datadoghq.DatadogTests-macOS";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		E399470F246DF682009B5C67 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				INFOPLIST_FILE = TargetSupport/DatadogTests/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 10.14;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.datadoghq.DatadogTests-macOS";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		E3994710246DF682009B5C67 /* Integration */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				INFOPLIST_FILE = TargetSupport/DatadogTests/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 10.14;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.datadoghq.DatadogTests-macOS";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Integration;
+		};
 		E3A4E0E3246C80940088D224 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -1878,6 +2076,16 @@
 				9E2FB2752447660E001C9B7B /* Debug */,
 				9E2FB2762447660E001C9B7B /* Release */,
 				9E2FB28624476765001C9B7B /* Integration */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		E3994711246DF682009B5C67 /* Build configuration list for PBXNativeTarget "DatadogTests_macOS" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				E399470E246DF682009B5C67 /* Debug */,
+				E399470F246DF682009B5C67 /* Release */,
+				E3994710246DF682009B5C67 /* Integration */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
