@@ -6,10 +6,11 @@
 
 import Foundation
 
+@available(OSX 10.12, *)
 extension ISO8601DateFormatter {
     static func `default`() -> ISO8601DateFormatter {
         let formatter = ISO8601DateFormatter()
-        if #available(iOS 11.2, *) {
+        if #available(iOS 11.2, OSX 10.13, *) {
             formatter.formatOptions.insert(.withFractionalSeconds)
         }
         return formatter
@@ -23,4 +24,14 @@ extension ISO8601DateFormatter {
             try container.encode(formatted)
         }
     }
+}
+
+/// Fallback for older macOS versions
+func iso8601DateFormatter() -> DateFormatter {
+    let formatter = DateFormatter()
+    formatter.calendar = Calendar(identifier: .iso8601)
+    formatter.locale = Locale(identifier: "en_US_POSIX")
+    formatter.timeZone = TimeZone(secondsFromGMT: 0)
+    formatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss.SSSXXXXX"
+    return formatter
 }

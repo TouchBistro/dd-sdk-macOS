@@ -15,8 +15,12 @@ internal protocol ConsoleLogFormatter {
 internal struct LogConsoleOutput: LogOutput {
     /// Time formatter used for `.short` output format.
     static func shortTimeFormatter(calendar: Calendar = .current, timeZone: TimeZone = .current) -> Formatter {
+        guard #available(OSX 10.12, *) else {
+            return iso8601DateFormatter()
+        }
+
         let formatter = ISO8601DateFormatter.default()
-        if #available(iOS 11.2, *) {
+        if #available(iOS 11.2, OSX 10.13, *) {
             formatter.formatOptions = [.withFractionalSeconds, .withFullTime]
         } else {
             formatter.formatOptions = [.withFullTime]
