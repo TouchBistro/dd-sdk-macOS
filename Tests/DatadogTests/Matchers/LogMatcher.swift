@@ -11,7 +11,7 @@ import XCTest
 struct LogMatcher {
     private static let dateFormatter: ISO8601DateFormatter = {
         let formatter = ISO8601DateFormatter()
-        if #available(iOS 11.2, *) {
+        if #available(iOS 11.2, OSX 10.14, *) {
             formatter.formatOptions.insert(.withFractionalSeconds)
         }
         return formatter

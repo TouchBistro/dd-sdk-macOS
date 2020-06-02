@@ -20,7 +20,7 @@ internal struct LogConsoleOutput: LogOutput {
         }
 
         let formatter = ISO8601DateFormatter.default()
-        if #available(iOS 11.2, OSX 10.13, *) {
+        if #available(iOS 11.2, OSX 10.14, *) {
             formatter.formatOptions = [.withFractionalSeconds, .withFullTime]
         } else {
             formatter.formatOptions = [.withFullTime]
