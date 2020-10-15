@@ -46,7 +46,7 @@ internal struct File: WritableFile, ReadableFile {
     func append(data: Data) throws {
         let fileHandle = try FileHandle(forWritingTo: url)
 
-        if #available(iOS 13.4, *) {
+        if #available(iOS 13.4, OSX 10.15, *) {
             /**
              Even though the `fileHandle.seekToEnd()` should be available since iOS 13.0:
              ```
@@ -78,7 +78,7 @@ internal struct File: WritableFile, ReadableFile {
     func read() throws -> Data {
         let fileHandle = try FileHandle(forReadingFrom: url)
 
-        if #available(iOS 13.4, *) {
+        if #available(iOS 13.4, OSX 10.15, *) {
             /**
              Even though the `fileHandle.seekToEnd()` should be available since iOS 13.0:
              ```
