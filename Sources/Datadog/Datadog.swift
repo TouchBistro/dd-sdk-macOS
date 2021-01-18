@@ -22,7 +22,7 @@ public class Datadog {
             let bundleShortVersion = mainBundle.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String
 
             self.init(
-                bundleType: mainBundle.bundlePath.hasSuffix(".appex") ? .iOSAppExtension : .iOSApp,
+                bundleType: mainBundle.bundlePath.hasSuffix(".appex") ? .iOSAppExtension : mainBundle.bundlePath.hasSuffix(".macos") ? .macOSApp : .iOSApp,
                 bundleIdentifier: mainBundle.bundleIdentifier,
                 bundleVersion: bundleShortVersion ?? bundleVersion,
                 bundleName: mainBundle.object(forInfoDictionaryKey: "CFBundleExecutable") as? String

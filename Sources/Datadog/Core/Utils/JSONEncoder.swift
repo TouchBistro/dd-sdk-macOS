@@ -14,24 +14,39 @@ extension JSONEncoder {
             let formatted = iso8601DateFormatter.string(from: date)
             try container.encode(formatted)
         }
-//        if #available(OSX 10.12, *) {
-//            encoder.dateEncodingStrategy = ISO8601DateFormatter.encodingStrategy
-//        } else {
-//            encoder.dateEncodingStrategy = dateEncodingStrategy()
+//        if #available(OSX 10.10, *) {
+//            encoder.dateEncodingStrategy = dateEncodingStrategyMacOS()
 //        }
         if #available(iOS 13.0, OSX 10.15, *) {
             encoder.outputFormatting = [.withoutEscapingSlashes]
         }
         return encoder
     }
-//
-//    // Fallback for older macOS versions
-//    private static func dateEncodingStrategy() -> JSONEncoder.DateEncodingStrategy {
-//        let formatter = iso8601DateFormatter()
+
+//    private static func dateEncodingStrategyMacOS() -> JSONEncoder.DateEncodingStrategy {
+//        let formatter: DateFormatterType
+//        if #available(OSX 10.12, *) {
+//            let isoformatter = ISO8601DateFormatter()
+//            if #available(OSX 10.14, *) {
+//                isoformatter.formatOptions.insert(.withFractionalSeconds)
+//            }
+//            formatter = isoformatter
+//        } else {
+//            formatter = iso8601DateFormatterMacOS()
+//        }
 //        return .custom { date, encoder in
 //            var container = encoder.singleValueContainer()
-//            let formatted = formatter.string(for: date) ?? ""
+//            let formatted = formatter.string(from: date)
 //            try container.encode(formatted)
 //        }
+//    }
+//    // Fallback for older macOS versions
+//    private static func iso8601DateFormatterMacOS() -> DateFormatterType {
+//        let formatter = DateFormatter()
+//        formatter.calendar = Calendar(identifier: .iso8601)
+//        formatter.locale = Locale(identifier: "en_US_POSIX")
+//        formatter.timeZone = TimeZone(secondsFromGMT: 0)
+//        formatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss.SSSXXXXX"
+//        return formatter
 //    }
 }

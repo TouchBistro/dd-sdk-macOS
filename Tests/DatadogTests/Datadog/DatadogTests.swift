@@ -11,8 +11,10 @@ class AppContextTests: XCTestCase {
     func testBundleType() {
         let iOSAppBundle: Bundle = .mockWith(bundlePath: "mock.app")
         let iOSAppExtensionBundle: Bundle = .mockWith(bundlePath: "mock.appex")
+        let macOSAppBundle: Bundle = .mockWith(bundlePath: "mock.macos")
         XCTAssertEqual(AppContext(mainBundle: iOSAppBundle).bundleType, .iOSApp)
         XCTAssertEqual(AppContext(mainBundle: iOSAppExtensionBundle).bundleType, .iOSAppExtension)
+        XCTAssertEqual(AppContext(mainBundle: macOSAppBundle).bundleType, .macOSApp)
     }
 
     func testBundleIdentifier() throws {
