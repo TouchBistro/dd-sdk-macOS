@@ -62,6 +62,9 @@ extension Datadog.ValidConfiguration {
 
 extension AppContext {
     static func mockAny() -> AppContext {
+        if #available(OSX 10.10, *) {
+            return mockWith(bundleType: .macOSApp, bundleIdentifier: .mockAny(), bundleVersion: .mockAny(), bundleName: .mockAny())
+        }
         return mockWith()
     }
 

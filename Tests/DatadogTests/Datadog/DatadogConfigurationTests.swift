@@ -97,6 +97,13 @@ class DatadogValidConfigurationTests: XCTestCase {
             appContext: .mockWith(bundleType: .iOSAppExtension, bundleName: nil)
         )
         XCTAssertEqual(configuration.applicationName, "iOSAppExtension")
+        
+        // it fallbacks to `.bundleType` when `.bundleName` is `nil`
+        configuration = try Configuration(
+            configuration: .mockAny(),
+            appContext: .mockWith(bundleType: .macOSApp, bundleName: nil)
+        )
+        XCTAssertEqual(configuration.applicationName, "macOSApp")
     }
 
     func testApplicationVersion() throws {

@@ -117,6 +117,7 @@ internal struct PerformancePreset: Equatable, StoragePerformancePreset, UploadPe
     static func best(for bundleType: BundleType) -> PerformancePreset {
         switch bundleType {
         case .iOSApp: return `default`
+        case .macOSApp: return `default`
         case .iOSAppExtension: return instantDataDelivery
         }
     }

@@ -10,4 +10,5 @@ import Foundation
 internal enum BundleType: String {
     case iOSApp
     case iOSAppExtension
+    case macOSApp
 }
