@@ -5,7 +5,7 @@
  */
 
 import Foundation
-
+#if os(iOS)
 /// A class reading the Virtual Memory resident_size, that is the part of the virtual memory which is currently in RAM.
 internal class VitalMemoryReader: SamplingBasedVitalReader {
     static let task_vm_info_count = MemoryLayout<task_vm_info>.size / MemoryLayout<natural_t>.size
@@ -32,3 +32,4 @@ internal class VitalMemoryReader: SamplingBasedVitalReader {
         }
     }
 }
+#endif

@@ -17,6 +17,8 @@ extension Datadog.Configuration.Builder: DatadogInternal {}
 ///
 /// Methods, members, and functionality of this class  are subject to change without notice, as they
 /// are not considered part of the public interface of the Datadog SDK.
+///
+#if os(iOS)
 extension DatadogExtension where ExtendedType: Datadog {
     /// Internal telemetry proxy.
     public static var telemetry: _TelemetryProxy { .init() }
@@ -33,6 +35,7 @@ extension DatadogExtension where ExtendedType: Datadog {
         core.applicationVersionPublisher.version = customVersion
     }
 }
+
 
 public struct _TelemetryProxy {
     public func setConfigurationMapper(mapper: @escaping (TelemetryConfigurationEvent) -> TelemetryConfigurationEvent) {
@@ -62,6 +65,7 @@ public struct _WebEventBridgeProxy {
         try bridge.consume(anyMessage)
     }
 }
+#endif
 
 extension DatadogExtension where ExtendedType: Datadog.Configuration.Builder {
     /// Sets the custom mapper for `LogEvent`. This can be used to modify logs before they are sent to Datadog.

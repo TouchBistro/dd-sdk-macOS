@@ -6,6 +6,7 @@
 
 import Foundation
 
+#if os(iOS)
 internal class LongTaskObserver: RUMCommandPublisher {
     private let longTaskDurationThreshold: TimeInterval
     private let dateProvider: DateProvider
@@ -82,3 +83,4 @@ internal class LongTaskObserver: RUMCommandPublisher {
         }
     }
 }
+#endif

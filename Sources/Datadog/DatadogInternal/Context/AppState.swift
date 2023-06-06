@@ -140,7 +140,7 @@ extension AppStateHistory {
     }
 }
 
-#if canImport(UIKit)
+#if os(iOS)
 
 import UIKit
 

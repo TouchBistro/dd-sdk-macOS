@@ -5,7 +5,7 @@
  */
 
 import Foundation
-
+#if os(iOS)
 /// Receiver to consume crash reports as RUM events.
 internal struct CrashReportReceiver: FeatureMessageReceiver {
     /// Defines keys referencing Crash message on the bus.
@@ -206,6 +206,7 @@ internal struct CrashReportReceiver: FeatureMessageReceiver {
             // This indicates an edge case, where RUM session was created (we know the `lastRUMSessionState`), but no RUM view event
             // was yet passed to `CrashContext` (othwesiwe we would be calling `sendCrashReportLinkedToLastViewInPreviousSession()`).
             // It can happen if crash occurs shortly after starting first RUM session, but before we complete serializing first RUM view event in `CrashContext`.
+#if os(iOS)
             newRUMView = createNewRUMViewEvent(
                 named: RUMOffViewEventsHandlingRule.Constants.applicationLaunchViewName,
                 url: RUMOffViewEventsHandlingRule.Constants.applicationLaunchViewURL,
@@ -214,9 +215,11 @@ internal struct CrashReportReceiver: FeatureMessageReceiver {
                 context: crashContext,
                 hasReplay: lastRUMSessionState.didStartWithReplay
             )
+            #endif
         case .handleInBackgroundView:
             // It means that the crash occured as the very first event after sending app to background in previous session.
             // This is why we don't have the `lastRUMViewEvent` (no view was active), but we know the `lastRUMSessionState`.
+#if os(iOS)
             newRUMView = createNewRUMViewEvent(
                 named: RUMOffViewEventsHandlingRule.Constants.backgroundViewName,
                 url: RUMOffViewEventsHandlingRule.Constants.backgroundViewURL,
@@ -225,6 +228,7 @@ internal struct CrashReportReceiver: FeatureMessageReceiver {
                 context: crashContext,
                 hasReplay: lastRUMSessionState.didStartWithReplay
             )
+            #endif
         case .doNotHandle:
             DD.logger.debug("There was a crash in background, but it is ignored due to Background Event Tracking disabled or sampling.")
             newRUMView = nil
@@ -256,6 +260,7 @@ internal struct CrashReportReceiver: FeatureMessageReceiver {
 
         switch handlingRule {
         case .handleInApplicationLaunchView:
+#if os(iOS)
             newRUMView = createNewRUMViewEvent(
                 named: RUMOffViewEventsHandlingRule.Constants.applicationLaunchViewName,
                 url: RUMOffViewEventsHandlingRule.Constants.applicationLaunchViewURL,
@@ -267,7 +272,9 @@ internal struct CrashReportReceiver: FeatureMessageReceiver {
                 // that there must be no replay collected:
                 hasReplay: false
             )
+            #endif
         case .handleInBackgroundView:
+#if os(iOS)
             newRUMView = createNewRUMViewEvent(
                 named: RUMOffViewEventsHandlingRule.Constants.backgroundViewName,
                 url: RUMOffViewEventsHandlingRule.Constants.backgroundViewURL,
@@ -279,6 +286,7 @@ internal struct CrashReportReceiver: FeatureMessageReceiver {
                 // that there must be no replay collected:
                 hasReplay: false
             )
+            #endif
         case .doNotHandle:
             DD.logger.debug("There was a crash in background, but it is ignored due to Background Event Tracking disabled.")
             newRUMView = nil
@@ -431,6 +439,7 @@ internal struct CrashReportReceiver: FeatureMessageReceiver {
         )
     }
 
+#if os(iOS)
     /// Creates new RUM view event.
     private func createNewRUMViewEvent(
         named viewName: String,
@@ -518,6 +527,8 @@ internal struct CrashReportReceiver: FeatureMessageReceiver {
             )
         )
     }
+    
+    #endif
 }
 
 /// `Encodable` representation of RUM Error event for crash.
@@ -583,3 +594,4 @@ extension RUMCrashEvent: RUMSanitizableEvent {
         set { model.context = newValue }
     }
 }
+#endif

@@ -4,6 +4,7 @@
  * Copyright 2019-Present Datadog, Inc.
  */
 
+#if os(iOS)
 import UIKit
 import Foundation
 
@@ -693,3 +694,5 @@ public class RUMMonitor: DDRUMMonitor, RUMCommandSubscriber {
     }
 #endif
 }
+
+#endif

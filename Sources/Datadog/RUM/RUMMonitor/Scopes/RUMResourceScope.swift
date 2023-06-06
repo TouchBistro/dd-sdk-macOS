@@ -6,6 +6,8 @@
 
 import Foundation
 
+#if os(iOS)
+
 internal class RUMResourceScope: RUMScope {
     // MARK: - Initialization
 
@@ -326,3 +328,4 @@ internal class RUMResourceScope: RUMScope {
         return duration.toInt64Nanoseconds
     }
 }
+#endif

@@ -4,7 +4,9 @@
  * Copyright 2019-Present Datadog, Inc.
  */
 
+#if os(iOS)
 import UIKit
+
 
 internal extension UIApplication {
     /// `UIApplication.shared` does not compile in some environments (e.g. notification service app extension), resulting with:
@@ -31,3 +33,5 @@ internal extension Bundle {
             || bundleURL.lastPathComponent == "UIKit.framework" // on iOS 11
     }
 }
+
+#endif

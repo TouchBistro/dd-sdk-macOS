@@ -6,6 +6,8 @@
 
 import Foundation
 
+#if os(iOS)
+
 /// An interface for handling `URLSession` interceptions start and completion.
 internal protocol URLSessionInterceptionHandler {
     /// Notifies the `URLSessionTask` interception start.
@@ -295,3 +297,5 @@ public class URLSessionInterceptor: URLSessionInterceptorType {
         return tracer.extract(reader: reader) as? DDSpanContext
     }
 }
+
+#endif

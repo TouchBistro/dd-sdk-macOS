@@ -5,7 +5,9 @@
  */
 
 import Foundation
+#if os(iOS)
 import UIKit
+
 
 internal final class RUMViewsHandler {
     /// RUM representation of a View.
@@ -258,3 +260,4 @@ extension RUMViewsHandler: SwiftUIViewHandler {
         remove(identity: identity.asRUMViewIdentity())
     }
 }
+#endif

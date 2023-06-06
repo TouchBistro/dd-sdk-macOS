@@ -285,7 +285,9 @@ extension Datadog {
         private(set) var spanEventMapper: SpanEventMapper?
         private(set) var loggingSamplingRate: Float
         private(set) var tracingSamplingRate: Float
+#if os(iOS)
         private(set) var rumSessionsSamplingRate: Float
+
         private(set) var rumSessionsListener: RUMSessionListener?
         private(set) var rumUIKitViewsPredicate: UIKitRUMViewsPredicate?
         private(set) var rumUIKitUserActionsPredicate: UIKitRUMUserActionsPredicate?
@@ -295,7 +297,9 @@ extension Datadog {
         private(set) var rumActionEventMapper: RUMActionEventMapper?
         private(set) var rumErrorEventMapper: RUMErrorEventMapper?
         private(set) var rumLongTaskEventMapper: RUMLongTaskEventMapper?
+
         private(set) var rumResourceAttributesProvider: URLSessionRUMAttributesProvider?
+        #endif
         private(set) var rumBackgroundEventTrackingEnabled: Bool
         private(set) var rumFrustrationSignalsTrackingEnabled: Bool
         private(set) var rumTelemetrySamplingRate: Float
@@ -342,6 +346,8 @@ extension Datadog {
 
             /// Private initializer providing default configuration values.
             init(rumApplicationID: String?, clientToken: String, environment: String) {
+                
+#if os(iOS)
                 self.configuration = Configuration(
                     rumApplicationID: rumApplicationID,
                     clientToken: clientToken,
@@ -382,8 +388,44 @@ extension Datadog {
                     additionalConfiguration: [:],
                     proxyConfiguration: nil
                 )
-            }
+                
+            #else
+            
+            
+            self.configuration = Configuration(
+                rumApplicationID: rumApplicationID,
+                clientToken: clientToken,
+                environment: environment,
+                loggingEnabled: true,
+                tracingEnabled: true,
+                rumEnabled: rumApplicationID != nil,
+                // While `.set(<feature>Endpoint:)` APIs are deprecated, the `datadogEndpoint` default must be `nil`,
+                // so we know the clear user's intent to override deprecated values.
+                datadogEndpoint: nil,
+                customLogsEndpoint: nil,
+                customTracesEndpoint: nil,
+                customRUMEndpoint: nil,
+                logsEndpoint: .us1,
+                tracesEndpoint: .us1,
+                rumEndpoint: .us1,
+                serviceName: nil,
+                firstPartyHosts: nil,
+                spanEventMapper: nil,
+                loggingSamplingRate: 100.0,
+                tracingSamplingRate: 20.0,
+                rumBackgroundEventTrackingEnabled: false,
+                rumFrustrationSignalsTrackingEnabled: true,
+                rumTelemetrySamplingRate: 20,
+                mobileVitalsFrequency: .average,
+                batchSize: .medium,
+                uploadFrequency: .average,
+                additionalConfiguration: [:],
+                proxyConfiguration: nil
+            )
+  
+        #endif
 
+            }
             /// Sets the Datadog server endpoint where data is sent.
             ///
             /// If set, it will override values set by any of these deprecated APIs:
@@ -643,6 +685,7 @@ extension Datadog {
                 return self
             }
 
+#if os(iOS)
             /// Sets the sampling rate for RUM Sessions.
             ///
             /// - Parameter rumSessionsSamplingRate: the sampling rate must be a value between `0.0` and `100.0`. A value of `0.0`
@@ -676,10 +719,13 @@ extension Datadog {
             ///
             /// - Parameter predicate: the predicate deciding if a given `UIViewController` marks the beginning or end of the RUM View.
             /// Defaults to `DefaultUIKitRUMViewsPredicate` instance.
+            ///
+          
             public func trackUIKitRUMViews(using predicate: UIKitRUMViewsPredicate = DefaultUIKitRUMViewsPredicate()) -> Builder {
                 configuration.rumUIKitViewsPredicate = predicate
                 return self
             }
+            #endif
 
             /// Enables or disables automatic tracking of `UITouch` events as RUM Actions.
             ///
@@ -694,6 +740,8 @@ extension Datadog {
             /// Until this option is enabled, automatic tracking of `UIEvents` is disabled and no swizzling is installed on the `UIApplication` class.
             ///
             /// - Parameter enabled: `true` by default
+            ///
+           #if os(iOS)
             @available(*, deprecated, message: "This option is replaced by `trackUIKitRUMActions(using:)`. Refer to the new API comment for details.")
             public func trackUIKitActions(_ enabled: Bool = true) -> Builder {
                 if enabled {
@@ -701,6 +749,8 @@ extension Datadog {
                 }
                 return self
             }
+            
+            #endif
 
             /// Enables automatic tracking of `UITouch` events as RUM Actions.
             ///
@@ -716,10 +766,13 @@ extension Datadog {
             ///
             /// - Parameter predicate: predicate deciding if a given action should be recorded and which allows to give custom name and to add custom attributes to the RUM Action.
             /// Defaults to `DefaultUIKitRUMUserActionsPredicate` instance.
+            ///
+            #if os(iOS)
             public func trackUIKitRUMActions(using predicate: UIKitRUMUserActionsPredicate = DefaultUIKitRUMUserActionsPredicate()) -> Builder {
                 configuration.rumUIKitUserActionsPredicate = predicate
                 return self
             }
+      
 
             /// Enable long operations on the main thread to be tracked automatically.
             /// Any long running operation on the main thread will appear as Long Tasks in Datadog RUM Explorer.
@@ -776,7 +829,7 @@ extension Datadog {
                 configuration.rumLongTaskEventMapper = mapper
                 return self
             }
-
+#endif
             /// Sets a closure to provide custom attributes for intercepted RUM Resources.
             ///
             /// The `provider` closure is called for each `URLSession` task intercepted by the SDK (each automatically collected RUM Resource).
@@ -785,11 +838,12 @@ extension Datadog {
             ///
             /// - Parameter provider: the closure called for each RUM Resource collected by the SDK. This closure is called with task information and may return custom attributes
             ///                       for the RUM Resource or `nil` if no attributes should be attached.
+#if os(iOS)
             public func setRUMResourceAttributesProvider(_ provider: @escaping (URLRequest, URLResponse?, Data?, Error?) -> [AttributeKey: AttributeValue]?) -> Builder {
                 configuration.rumResourceAttributesProvider = provider
                 return self
             }
-
+            #endif
             /// Enables or disables automatic tracking of background events (events hapenning when no `UIViewController` is active).
             ///
             /// When enabled, the SDK will track RUM Events into an automatically created Background RUM View (named `Background`)

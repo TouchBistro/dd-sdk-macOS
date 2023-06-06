@@ -5,7 +5,9 @@
  */
 
 import Foundation
+#if os(iOS)
 import UIKit
+
 
 /// An observer of `AppStateHistory` value.
 internal typealias AppStateHistoryObserver = ValueObserver
@@ -112,3 +114,4 @@ internal class AppStateListener: AppStateListening {
         publisher.subscribe(subscriber)
     }
 }
+#endif

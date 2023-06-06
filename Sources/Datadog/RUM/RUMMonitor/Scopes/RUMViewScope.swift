@@ -5,7 +5,7 @@
  */
 
 import Foundation
-
+#if os(iOS)
 internal class RUMViewScope: RUMScope, RUMContextProvider {
     struct Constants {
         static let frozenFrameThresholdInNs = (0.7).toInt64Nanoseconds // 700ms
@@ -699,3 +699,5 @@ private extension VitalInfo {
 /// A protocol for `RUMCommand`s that can propagate their attributes to the `RUMViewScope``.
 internal protocol RUMViewScopePropagatableAttributes where Self: RUMCommand {
 }
+
+#endif

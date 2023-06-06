@@ -46,11 +46,14 @@ internal struct FeaturesConfiguration {
         let spanEventMapper: SpanEventMapper?
         let dateProvider: DateProvider
     }
-
+#if os(iOS)
     struct RUM {
         struct Instrumentation {
+           
             let uiKitRUMViewsPredicate: UIKitRUMViewsPredicate?
+           
             let uiKitRUMUserActionsPredicate: UIKitRUMUserActionsPredicate?
+
             let longTaskThreshold: TimeInterval?
         }
 
@@ -74,6 +77,8 @@ internal struct FeaturesConfiguration {
         let vitalsFrequency: TimeInterval?
         let dateProvider: DateProvider
     }
+    
+#endif
 
     struct URLSessionAutoInstrumentation {
         /// First party hosts defined by the user with custom tracing header types.
@@ -81,9 +86,12 @@ internal struct FeaturesConfiguration {
 
         /// URLs used internally by the SDK - they are not instrumented.
         let sdkInternalURLs: Set<String>
+        
+#if os(iOS)
         /// An optional RUM Resource attributes provider.
         let rumAttributesProvider: URLSessionRUMAttributesProvider?
 
+        #endif
         /// If the Tracing instrumentation should be enabled.
         let instrumentTracing: Bool
         /// If the RUM instrumentation should be enabled.
@@ -106,7 +114,9 @@ internal struct FeaturesConfiguration {
     /// Tracing feature configuration or `nil` if the feature is disabled.
     let tracing: Tracing?
     /// RUM feature configuration or `nil` if the feature is disabled.
+    #if os(iOS)
     let rum: RUM?
+    #endif
     /// `URLSession` auto instrumentation configuration, `nil` if not enabled.
     let urlSessionAutoInstrumentation: URLSessionAutoInstrumentation?
     /// Crash Reporting feature configuration or `nil` if the feature was not enabled.
@@ -124,7 +134,9 @@ extension FeaturesConfiguration {
     init(configuration: Datadog.Configuration, appContext: AppContext) throws {
         var logging: Logging?
         var tracing: Tracing?
+#if os(iOS)
         var rum: RUM?
+        #endif
         var urlSessionAutoInstrumentation: URLSessionAutoInstrumentation?
         var crashReporting: CrashReporting?
 
@@ -190,7 +202,7 @@ extension FeaturesConfiguration {
             serverDateProvider: configuration.serverDateProvider,
             dateProvider: dateProvider
         )
-
+#if os(iOS)
         if configuration.loggingEnabled {
             logging = Logging(
                 uploadURL: try ifValid(endpointURLString: logsEndpoint.url),
@@ -252,6 +264,7 @@ extension FeaturesConfiguration {
                 )
                 consolePrint("\(error)")
             }
+            
         }
 
         if let firstPartyHosts = configuration.firstPartyHosts {
@@ -300,11 +313,14 @@ extension FeaturesConfiguration {
                 consolePrint("\(error)")
             }
         }
-
+#endif
         self.common = common
         self.logging = logging
         self.tracing = tracing
+        
+#if os(iOS)
         self.rum = rum
+        #endif
         self.urlSessionAutoInstrumentation = urlSessionAutoInstrumentation
         self.crashReporting = crashReporting
     }

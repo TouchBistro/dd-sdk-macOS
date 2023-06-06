@@ -5,7 +5,7 @@
  */
 
 import Foundation
-
+#if os(iOS)
 internal class RUMEventBuilder {
     let eventsMapper: RUMEventsMapper
     let sanitizer = RUMEventSanitizer()
@@ -22,3 +22,4 @@ internal class RUMEventBuilder {
         return sanitizer.sanitize(event: transformedEvent)
     }
 }
+#endif

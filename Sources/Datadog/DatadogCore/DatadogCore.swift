@@ -198,11 +198,19 @@ internal final class DatadogCore {
 
     /// A list of upload units of currently registered Features.
     private var allUploads: [FeatureUpload] {
+       #if os(iOS)
         let v1Uploads = [
             feature(LoggingFeature.self)?.upload,
             feature(TracingFeature.self)?.upload,
             feature(RUMFeature.self)?.upload,
         ].compactMap { $0 }
+        #else
+        let v1Uploads = [
+            feature(LoggingFeature.self)?.upload,
+            feature(TracingFeature.self)?.upload,
+        ].compactMap { $0 }
+        
+        #endif
         let v2Uploads = v2Features.values.map { $0.upload }
         return v1Uploads + v2Uploads
     }
@@ -250,9 +258,12 @@ internal final class DatadogCore {
         allUploads.forEach { $0.flushAndTearDown() }
         allStorages.forEach { $0.setIgnoreFilesAgeWhenReading(to: false) }
 
+#if os(iOS)
         // Deinitialize arbitrary V1 Features:
         feature(RUMInstrumentation.self)?.deinitialize()
         feature(URLSessionAutoInstrumentation.self)?.deinitialize()
+        
+        #endif
 
         // Deinitialize V2 Integrations (arbitrarily for now, until we make it into `DatadogFeatureIntegration`):
         integration(named: "crash-reporter", type: CrashReporter.self)?.deinitialize()

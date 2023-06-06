@@ -5,7 +5,7 @@
  */
 
 import Foundation
-
+#if os(iOS)
 internal typealias RUMSessionListener = (String, Bool) -> Void
 
 /// Dependency container for injecting components to `RUMScopes` hierarchy.
@@ -70,3 +70,4 @@ internal extension RUMScopeDependencies {
         )
     }
 }
+#endif

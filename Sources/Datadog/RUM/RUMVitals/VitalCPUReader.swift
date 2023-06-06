@@ -5,6 +5,7 @@
  */
 
 import Foundation
+#if os(iOS)
 import UIKit.UIApplication
 
 /// A class reading the CPU ticks of the processor.
@@ -85,3 +86,4 @@ internal class VitalCPUReader: SamplingBasedVitalReader {
         return UInt64(userTicks)
     }
 }
+#endif

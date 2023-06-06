@@ -6,6 +6,8 @@
 
 import Foundation
 
+#if os(iOS)
+
 internal class RUMApplicationScope: RUMScope, RUMContextProvider {
     // MARK: - Child Scopes
 
@@ -164,3 +166,5 @@ internal class RUMApplicationScope: RUMScope, RUMContextProvider {
         dependencies.onSessionStart?(sessionID, isDiscarded)
     }
 }
+
+#endif

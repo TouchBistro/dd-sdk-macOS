@@ -5,6 +5,7 @@
  */
 
 import Foundation
+#if os(iOS)
 
 internal typealias RUMTelemetryConfiguratoinMapper = (TelemetryConfigurationEvent) -> TelemetryConfigurationEvent
 internal typealias RUMTelemetryDelayedDispatcher = (@escaping () -> Void) -> Void
@@ -279,3 +280,4 @@ private extension Float {
         return try? Int64(withReportingOverflow: self)
     }
 }
+#endif

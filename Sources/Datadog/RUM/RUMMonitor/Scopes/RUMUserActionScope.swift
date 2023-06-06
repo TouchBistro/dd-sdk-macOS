@@ -6,6 +6,8 @@
 
 import Foundation
 
+#if os(iOS)
+
 internal class RUMUserActionScope: RUMScope, RUMContextProvider {
     struct Constants {
         /// If no activity is observed within this period in a discrete (discontinous) User Action, it is condiered ended.
@@ -202,3 +204,5 @@ internal class RUMUserActionScope: RUMScope, RUMContextProvider {
         return activeResourcesCount <= 0
     }
 }
+
+#endif

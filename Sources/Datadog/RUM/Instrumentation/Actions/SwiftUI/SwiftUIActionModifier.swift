@@ -4,7 +4,7 @@
  * Copyright 2019-Present Datadog, Inc.
  */
 
-#if canImport(SwiftUI)
+#if os(iOS)
 import SwiftUI
 
 #if !os(tvOS)

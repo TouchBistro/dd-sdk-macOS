@@ -14,5 +14,7 @@ public struct Global {
     public static var sharedTracer: OTTracer = DDNoopGlobals.tracer
 
     /// Shared RUM Monitor instance to use throughout the app.
+#if os(iOS)
     public static var rum: DDRUMMonitor = DDNoopRUMMonitor()
+    #endif
 }

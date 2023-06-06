@@ -5,7 +5,7 @@
  */
 
 import Foundation
-
+#if os(iOS)
 internal class URLSessionSwizzler {
     /// `URLSession.dataTask(with:completionHandler:)` (for `URLRequest`) swizzling.
     let dataTaskWithURLRequestAndCompletion: DataTaskWithURLRequestAndCompletion
@@ -263,3 +263,4 @@ internal class URLSessionSwizzler {
         }
     }
 }
+#endif

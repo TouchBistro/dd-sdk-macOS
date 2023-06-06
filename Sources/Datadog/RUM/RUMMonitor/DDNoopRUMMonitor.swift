@@ -4,6 +4,7 @@
  * Copyright 2019-Present Datadog, Inc.
  */
 
+#if os(iOS)
 import UIKit
 
 /// The no-op variant of `DDRUMMonitor`.
@@ -196,3 +197,4 @@ internal class DDNoopRUMMonitor: DDRUMMonitor {
         warn()
     }
 }
+#endif

@@ -5,7 +5,7 @@
  */
 
 import Foundation
-
+#if os(iOS)
 /// The low power mode publisher will publish the ``ProcessInfo/isLowPowerModeEnabled`` value
 /// by observing the `NSProcessInfoPowerStateDidChange` notification on the given
 /// notification center.
@@ -53,3 +53,5 @@ internal final class LowPowerModePublisher: ContextValuePublisher {
         observer.map(notificationCenter.removeObserver)
     }
 }
+
+#endif

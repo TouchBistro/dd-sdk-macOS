@@ -6,6 +6,7 @@
 
 import Foundation
 
+#if os(iOS)
 extension DDRUMMonitor: DatadogInternal {}
 
 /// This class exposes internal methods that are used by other Datadog modules and cross platform
@@ -46,3 +47,5 @@ extension DatadogExtension where ExtendedType: DDRUMMonitor {
         type.process(command: performanceMetric)
     }
 }
+
+#endif

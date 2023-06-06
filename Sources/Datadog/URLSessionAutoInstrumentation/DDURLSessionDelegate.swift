@@ -5,7 +5,7 @@
  */
 
 import Foundation
-
+#if os(iOS)
 /// An interface for forwarding `URLSessionDelegate` calls to `DDURLSessionDelegate`.
 /// The implementation must ensure that required methods are called on the `ddURLSessionDelegate`.
 @objc
@@ -107,3 +107,4 @@ open class DDURLSessionDelegate: NSObject, URLSessionTaskDelegate, URLSessionDat
         instrumentation?.interceptor.taskReceivedData(task: dataTask, data: data)
     }
 }
+#endif

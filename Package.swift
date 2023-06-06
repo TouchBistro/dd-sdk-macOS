@@ -6,7 +6,8 @@ let package = Package(
     name: "Datadog",
     platforms: [
         .iOS(.v11),
-        .tvOS(.v11)
+        .tvOS(.v11),
+        .macOS(.v10_15),
     ],
     products: [
         .library(

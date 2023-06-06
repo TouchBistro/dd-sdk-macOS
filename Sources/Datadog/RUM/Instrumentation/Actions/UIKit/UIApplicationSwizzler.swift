@@ -4,7 +4,9 @@
  * Copyright 2019-Present Datadog, Inc.
  */
 
+#if os(iOS)
 import UIKit
+
 
 internal class UIApplicationSwizzler {
     let sendEvent: SendEvent
@@ -48,3 +50,4 @@ internal class UIApplicationSwizzler {
         }
     }
 }
+#endif

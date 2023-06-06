@@ -4,7 +4,6 @@
 * Copyright 2019-Present Datadog, Inc.
 */
 
-#import <UIKit/UIKit.h>
 #import <pthread.h>
 #import <sys/sysctl.h>
 
@@ -40,21 +39,21 @@ static __dd_private_AppLaunchHandler *_shared;
     _shared = [[self alloc] initWithProcessInfo:NSProcessInfo.processInfo
                                        loadTime:CFAbsoluteTimeGetCurrent()];
 
-    NSNotificationCenter * __weak center = NSNotificationCenter.defaultCenter;
-    id __block __unused token = [center addObserverForName:UIApplicationDidBecomeActiveNotification
-                                                    object:nil
-                                                     queue:NSOperationQueue.mainQueue
-                                                usingBlock:^(NSNotification *_){
-
-        @synchronized(_shared) {
-            NSTimeInterval time = CFAbsoluteTimeGetCurrent() - _shared->_processStartTime;
-            _shared->_timeToApplicationDidBecomeActive = time;
-            _shared->_applicationDidBecomeActiveCallback(time);
-        }
-
-        [center removeObserver:token];
-        token = nil;
-    }];
+//    NSNotificationCenter * __weak center = NSNotificationCenter.defaultCenter;
+//    id __block __unused token = [center addObserverForName:UIApplicationDidBecomeActiveNotification
+//                                                    object:nil
+//                                                     queue:NSOperationQueue.mainQueue
+//                                                usingBlock:^(NSNotification *_){
+//
+//        @synchronized(_shared) {
+//            NSTimeInterval time = CFAbsoluteTimeGetCurrent() - _shared->_processStartTime;
+//            _shared->_timeToApplicationDidBecomeActive = time;
+//            _shared->_applicationDidBecomeActiveCallback(time);
+//        }
+//
+//        [center removeObserver:token];
+//        token = nil;
+//    }];
 }
 
 + (__dd_private_AppLaunchHandler *)shared {

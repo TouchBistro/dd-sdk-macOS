@@ -4,7 +4,9 @@
  * Copyright 2019-Present Datadog, Inc.
  */
 
+#if os(iOS)
 import UIKit
+
 
 internal protocol UIViewControllerHandler: RUMCommandPublisher {
     /// Gets called on `super.viewDidAppear()`.
@@ -12,3 +14,4 @@ internal protocol UIViewControllerHandler: RUMCommandPublisher {
     /// Gets called on `super.viewDidDisappear()`.
     func notify_viewDidDisappear(viewController: UIViewController, animated: Bool)
 }
+#endif

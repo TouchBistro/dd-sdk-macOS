@@ -4,6 +4,7 @@
  * Copyright 2019-Present Datadog, Inc.
  */
 
+#if os(iOS)
 import UIKit
 import Foundation
 
@@ -194,3 +195,5 @@ internal class RUMDebugView: UIView {
         fatalError("init(coder:) has not been implemented")
     }
 }
+
+#endif

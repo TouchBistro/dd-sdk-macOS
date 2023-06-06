@@ -6,6 +6,8 @@
 
 import Foundation
 
+#if os(iOS)
+
 /// The Command Subscriber is able to process RUM Commands.
 ///
 /// This protocol expect a single function to receive `RUMCommand`.
@@ -39,3 +41,4 @@ internal final class GlobalRUMCommandSubscriber: RUMCommandSubscriber {
         subscriber?.process(command: command)
     }
 }
+#endif

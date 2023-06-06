@@ -4,6 +4,7 @@
  * Copyright 2019-Present Datadog, Inc.
  */
 
+#if os(iOS)
 import Foundation
 
 /// `URLSession` Auto Instrumentation feature.
@@ -52,3 +53,4 @@ internal final class URLSessionAutoInstrumentation: RUMCommandPublisher {
         swizzler.unswizzle()
     }
 }
+#endif

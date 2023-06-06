@@ -5,6 +5,7 @@
  */
 
 import Foundation
+#if os(iOS)
 
 /// Creates RUM Feature Configuration.
 ///
@@ -112,3 +113,4 @@ internal struct ErrorMessageReceiver: FeatureMessageReceiver {
         return true
     }
 }
+#endif

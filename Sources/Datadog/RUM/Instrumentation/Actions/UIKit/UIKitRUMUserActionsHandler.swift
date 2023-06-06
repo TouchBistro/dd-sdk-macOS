@@ -4,7 +4,9 @@
  * Copyright 2019-Present Datadog, Inc.
  */
 
+#if os(iOS)
 import UIKit
+
 
 internal protocol UIEventHandler: RUMCommandPublisher {
     func notify_sendEvent(application: UIApplication, event: UIEvent)
@@ -171,3 +173,4 @@ internal struct UIPressCommandFactory: UIEventCommandFactory {
         )
     }
 }
+#endif

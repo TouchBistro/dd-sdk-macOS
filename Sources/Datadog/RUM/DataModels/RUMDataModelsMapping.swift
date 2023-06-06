@@ -14,6 +14,7 @@ extension BinaryInteger {
     }
 }
 
+#if os(iOS)
 internal extension RUMUUID {
     var toRUMDataFormat: String {
         return rawValue.uuidString.lowercased()
@@ -57,3 +58,4 @@ internal extension RUMViewEvent.Source {
         }
     }
 }
+#endif

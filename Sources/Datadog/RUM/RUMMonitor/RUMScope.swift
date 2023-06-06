@@ -5,7 +5,7 @@
  */
 
 import Foundation
-
+#if os(iOS)
 internal protocol RUMScope: AnyObject {
     /// Processes given command. Returns:
     /// * `true` if the scope should be kept open.
@@ -43,3 +43,4 @@ extension Dictionary where Key == AttributeKey, Value == AttributeValue {
         merge(additionalAttributes) { _, new in new }
     }
 }
+#endif

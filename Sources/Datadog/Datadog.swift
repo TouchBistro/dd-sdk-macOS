@@ -93,7 +93,9 @@ public class Datadog {
             let debugRumOverride = appContext.processInfo.arguments.contains(LaunchArguments.DebugRUM)
             if debugRumOverride {
                 consolePrint("⚠️ Overriding RUM debugging due to \(LaunchArguments.DebugRUM) launch argument")
+#if os(iOS)
                 Datadog.debugRUM = true
+                #endif
             }
         } catch {
             consolePrint("\(error)")
@@ -109,11 +111,13 @@ public class Datadog {
     /// If set, a debugging outline will be displayed on top of the application, describing the name of the active RUM View.
     /// May be used to debug issues with RUM instrumentation in your app.
     /// Default is `false`.
+    #if os(iOS)
     public static var debugRUM = false {
         didSet {
             (Global.rum as? RUMMonitor)?.enableRUMDebugging(debugRUM)
         }
     }
+    #endif
 
     /// Returns `true` if the Datadog SDK is already initialized, `false` otherwise.
     public static var isInitialized: Bool {
@@ -184,8 +188,9 @@ public class Datadog {
 
         let userInfoProvider = UserInfoProvider()
         let serverDateProvider = configuration.common.serverDateProvider ?? DatadogNTPDateProvider()
+        #if os(iOS)
         let appStateListener = AppStateListener(dateProvider: configuration.common.dateProvider)
-
+        #endif
         // Set default `DatadogCore`:
         let core = DatadogCore(
             directory: try CoreDirectory(in: Directory.cache(), from: configuration.common),
@@ -206,9 +211,13 @@ public class Datadog {
         // First, initialize features:
         var logging: LoggingFeature?
         var tracing: TracingFeature?
+#if os(iOS)
         var rum: RUMFeature?
 
+      
         var urlSessionAutoInstrumentation: URLSessionAutoInstrumentation?
+        
+      
         var rumInstrumentation: RUMInstrumentation?
 
         if let rumConfiguration = configuration.rum {
@@ -241,8 +250,9 @@ public class Datadog {
 
                 core.register(feature: rumInstrumentation)
             }
-        }
 
+        }
+#endif
         if let loggingConfiguration = configuration.logging {
             logging = try core.create(
                 configuration: createLoggingConfiguration(
@@ -265,6 +275,7 @@ public class Datadog {
             core.register(feature: tracing)
         }
 
+#if os(iOS)
         if let urlSessionAutoInstrumentationConfiguration = configuration.urlSessionAutoInstrumentation {
             urlSessionAutoInstrumentation = URLSessionAutoInstrumentation(
                 configuration: urlSessionAutoInstrumentationConfiguration,
@@ -276,8 +287,9 @@ public class Datadog {
         }
 
         core.v1.feature(RUMInstrumentation.self)?.enable()
-        core.v1.feature(URLSessionAutoInstrumentation.self)?.enable()
 
+        core.v1.feature(URLSessionAutoInstrumentation.self)?.enable()
+#endif
         defaultDatadogCore = core
 
         // After everything is set up, if the Crash Reporting feature was enabled,
@@ -328,7 +340,9 @@ public class Datadog {
 
         // Reset Globals:
         Global.sharedTracer = DDNoopGlobals.tracer
+        #if os(iOS)
         Global.rum = DDNoopRUMMonitor()
+        #endif
         DD.telemetry = NOPTelemetry()
 
         // Deinitialize `Datadog`:

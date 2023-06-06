@@ -5,7 +5,9 @@
  */
 
 import Foundation
+#if os(iOS)
 import UIKit
+
 
 /// Publisher generating RUM Commands on `SwiftUI.View` events.
 internal protocol SwiftUIViewHandler: RUMCommandPublisher {
@@ -15,3 +17,4 @@ internal protocol SwiftUIViewHandler: RUMCommandPublisher {
     /// Respond to a `SwiftUI.View.onDisappear` event.
     func notify_onDisappear(identity: String)
 }
+#endif

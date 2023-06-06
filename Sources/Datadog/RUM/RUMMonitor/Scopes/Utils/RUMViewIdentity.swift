@@ -4,7 +4,9 @@
  * Copyright 2019-Present Datadog, Inc.
  */
 
+#if os(iOS)
 import UIKit
+
 
 /// A type providing stable identity for a RUM View.
 /// Based on the `equals(_:)` implementation, it decides if two `RUMViewIdentifiables` identify the same
@@ -105,3 +107,4 @@ internal struct RUMViewIdentity {
         return (object as? RUMViewIdentifiable) ?? (value as? RUMViewIdentifiable)
     }
 }
+#endif

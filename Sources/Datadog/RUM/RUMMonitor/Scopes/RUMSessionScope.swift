@@ -5,6 +5,7 @@
  */
 
 import Foundation
+#if os(iOS)
 
 internal class RUMSessionScope: RUMScope, RUMContextProvider {
     struct Constants {
@@ -298,3 +299,5 @@ internal class RUMSessionScope: RUMScope, RUMContextProvider {
         return timedOut || expired
     }
 }
+
+#endif

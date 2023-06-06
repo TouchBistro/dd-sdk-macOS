@@ -4,7 +4,9 @@
  * Copyright 2019-Present Datadog, Inc.
  */
 
+#if os(iOS)
 import UIKit
+
 
 /// A description of the RUM View returned from the `UIKitRUMViewsPredicate`.
 public struct RUMView {
@@ -97,3 +99,4 @@ public struct DefaultUIKitRUMViewsPredicate: UIKitRUMViewsPredicate {
         return Bundle(for: `class`).isSwiftUI
     }
 }
+#endif

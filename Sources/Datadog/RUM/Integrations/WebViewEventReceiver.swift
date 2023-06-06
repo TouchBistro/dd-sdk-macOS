@@ -5,7 +5,7 @@
  */
 
 import Foundation
-
+#if os(iOS)
 internal typealias JSON = [String: Any]
 
 /// Receiver to consume a RUM event coming from Browser SDK.
@@ -121,3 +121,4 @@ internal final class WebViewEventReceiver: FeatureMessageReceiver {
         }
     }
 }
+#endif

@@ -44,7 +44,31 @@ public struct DeviceInfo: Codable, Equatable, DictionaryEncodable {
     }
 }
 
-#if canImport(UIKit)
+
+#if os(macOS)
+extension DeviceInfo {
+    
+    init() {
+        var sysinfo = utsname()
+        uname(&sysinfo)
+        let deviceName = String(bytes: Data(bytes: &sysinfo.machine, count: Int(_SYS_NAMELEN)), encoding: .ascii)?.trimmingCharacters(in: .controlCharacters)
+        let osVersion = ProcessInfo.processInfo.operatingSystemVersion
+        let osVersionStr = "\(osVersion.majorVersion).\(osVersion.minorVersion).\(osVersion.patchVersion)"
+        self.init(
+            name: deviceName ?? "",
+            model: deviceName ?? "",
+            osName: "macOS",
+            osVersion: osVersionStr,
+            architecture: "x86_64"
+        )
+    }
+    
+}
+
+#endif
+
+
+#if os(iOS)
 
 import UIKit
 import MachO

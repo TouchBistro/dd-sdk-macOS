@@ -5,7 +5,9 @@
  */
 
 import Foundation
+#if os(iOS)
 import UIKit
+
 
 /// A class reading the refresh rate (frames per second) of the main screen
 internal class VitalRefreshRateReader: ContinuousVitalReader {
@@ -162,3 +164,5 @@ extension CADisplayLink: FrameInfoProvider {
         targetTimestamp
     }
 }
+
+#endif

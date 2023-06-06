@@ -5,7 +5,9 @@
  */
 
 import Foundation
+#if os(iOS)
 import class UIKit.UIScreen
+
 
 internal protocol SamplingBasedVitalReader {
     func readVitalData() -> Double?
@@ -89,3 +91,5 @@ internal final class VitalInfoSampler {
         }
     }
 }
+
+#endif

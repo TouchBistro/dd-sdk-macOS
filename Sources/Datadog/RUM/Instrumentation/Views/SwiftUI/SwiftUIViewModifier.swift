@@ -4,8 +4,9 @@
  * Copyright 2019-Present Datadog, Inc.
  */
 
-#if canImport(SwiftUI)
+#if os(iOS)
 import SwiftUI
+
 
 /// `SwiftUI.ViewModifier` for RUM which invoke `startView` and `stopView` from the
 /// global RUM Monitor when the modified view appears and disappears.
@@ -70,5 +71,4 @@ public extension SwiftUI.View {
         )
     }
 }
-
 #endif

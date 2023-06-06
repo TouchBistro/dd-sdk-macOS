@@ -4,7 +4,9 @@
  * Copyright 2019-Present Datadog, Inc.
  */
 
+#if os(iOS)
 import UIKit
+
 
 internal class UIViewControllerSwizzler {
     let viewDidAppear: ViewDidAppear
@@ -77,3 +79,4 @@ internal class UIViewControllerSwizzler {
         }
     }
 }
+#endif

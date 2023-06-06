@@ -6,6 +6,8 @@
 
 import Foundation
 
+#if os(iOS)
+
 /// Command processed through the tree of `RUMScopes`.
 internal protocol RUMCommand {
     /// The time of command issue.
@@ -370,3 +372,5 @@ internal struct RUMUpdatePerformanceMetric: RUMCommand {
     var time: Date
     var attributes: [AttributeKey: AttributeValue]
 }
+
+#endif

@@ -4,7 +4,9 @@
  * Copyright 2019-Present Datadog, Inc.
  */
 
+#if os(iOS)
 import UIKit
+
 
 /// A description of the RUM Action returned from the `UIKitRUMUserActionsPredicate`.
 public struct RUMAction {
@@ -98,3 +100,5 @@ extension DefaultUIKitRUMUserActionsPredicate: UIPressRUMUserActionsPredicate {
         return RUMAction(name: name, attributes: [:])
     }
 }
+
+#endif

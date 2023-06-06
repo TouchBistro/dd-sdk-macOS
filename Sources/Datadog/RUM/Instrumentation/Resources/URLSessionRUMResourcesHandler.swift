@@ -5,7 +5,7 @@
  */
 
 import Foundation
-
+#if os(iOS)
 internal typealias URLSessionRUMAttributesProvider = (URLRequest, URLResponse?, Data?, Error?) -> [AttributeKey: AttributeValue]?
 
 internal class URLSessionRUMResourcesHandler: URLSessionInterceptionHandler, RUMCommandPublisher {
@@ -112,3 +112,4 @@ internal class URLSessionRUMResourcesHandler: URLSessionInterceptionHandler, RUM
         }
     }
 }
+#endif

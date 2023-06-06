@@ -4,7 +4,7 @@
  * Copyright 2019-Present Datadog, Inc.
  */
 
-#if canImport(UIKit)
+#if os(iOS)
 import UIKit
 
 internal final class ApplicationStatePublisher: ContextValuePublisher {

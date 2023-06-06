@@ -4,6 +4,7 @@
  * Copyright 2019-Present Datadog, Inc.
  */
 
+#if os(iOS)
 import Foundation
 
 internal class URLSessionTracingHandler: URLSessionInterceptionHandler {
@@ -98,3 +99,4 @@ internal class URLSessionTracingHandler: URLSessionInterceptionHandler {
         span.finish(at: resourceMetrics.fetch.end)
     }
 }
+#endif

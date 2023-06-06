@@ -5,6 +5,7 @@
  */
 
 import Foundation
+#if os(iOS)
 
 internal enum WebEventError: Error, Equatable {
     case dataSerialization(message: String)
@@ -65,3 +66,4 @@ internal class WebEventBridge {
         return json
     }
 }
+#endif

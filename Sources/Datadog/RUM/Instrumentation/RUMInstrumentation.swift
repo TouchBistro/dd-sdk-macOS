@@ -5,6 +5,7 @@
  */
 
 import Foundation
+#if os(iOS)
 
 /// RUM Auto Instrumentation feature.
 internal final class RUMInstrumentation: RUMCommandPublisher {
@@ -88,3 +89,4 @@ internal final class RUMInstrumentation: RUMCommandPublisher {
         userActionsAutoInstrumentation?.swizzler.unswizzle()
     }
 }
+#endif

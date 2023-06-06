@@ -4,7 +4,10 @@
  * Copyright 2019-Present Datadog, Inc.
  */
 
+import Foundation
+#if os(iOS)
 import UIKit
+
 
 /// A class enabling Datadog RUM features.
 ///
@@ -47,7 +50,6 @@ public class DDRUMMonitor {
         viewController: UIViewController,
         attributes: [AttributeKey: AttributeValue] = [:]
     ) {}
-
     /// Notifies that the View starts being presented to the user.
     /// - Parameters:
     ///   - key: a `String` value identifying this View. It must match the `key` passed later to `stopView(key:attributes:)`.
@@ -307,3 +309,5 @@ public class DDRUMMonitor {
 
     internal init() {}
 }
+
+#endif

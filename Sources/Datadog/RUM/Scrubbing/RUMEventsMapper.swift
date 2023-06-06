@@ -5,6 +5,7 @@
  */
 
 import Foundation
+#if os(iOS)
 
 internal typealias RUMViewEventMapper = (RUMViewEvent) -> RUMViewEvent
 internal typealias RUMErrorEventMapper = (RUMErrorEvent) -> RUMErrorEvent?
@@ -57,3 +58,4 @@ internal struct RUMEventsMapper {
         return mapper(event)
     }
 }
+#endif
