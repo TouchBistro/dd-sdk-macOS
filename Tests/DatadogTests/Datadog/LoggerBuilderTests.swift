@@ -1,138 +1,124 @@
 /*
  * Unless explicitly stated otherwise all files in this repository are licensed under the Apache License Version 2.0.
  * This product includes software developed at Datadog (https://www.datadoghq.com/).
- * Copyright 2019-2020 Datadog, Inc.
+ * Copyright 2019-Present Datadog, Inc.
  */
 
 import XCTest
 @testable import Datadog
 
 class LoggerBuilderTests: XCTestCase {
-    private let networkConnectionInfoProvider: NetworkConnectionInfoProviderMock = .mockAny()
-    private let carrierInfoProvider: CarrierInfoProviderMock = .mockAny()
-    private var mockServer: ServerMock! // swiftlint:disable:this implicitly_unwrapped_optional
+    private var core: DatadogCoreProxy! // swiftlint:disable:this implicitly_unwrapped_optional
 
     override func setUp() {
         super.setUp()
-        temporaryDirectory.create()
+        core = DatadogCoreProxy(context: .mockRandom())
 
-        mockServer = ServerMock(delivery: .success(response: .mockResponseWith(statusCode: 200)))
-        LoggingFeature.instance = .mockWorkingFeatureWith(
-            server: mockServer,
-            directory: temporaryDirectory,
-            configuration: .mockWith(
-                applicationVersion: "1.2.3",
-                applicationBundleIdentifier: "com.datadog.unit-tests",
-                serviceName: "service-name",
-                environment: "tests"
-            ),
-            networkConnectionInfoProvider: networkConnectionInfoProvider,
-            carrierInfoProvider: carrierInfoProvider
+        let feature: LoggingFeature = .mockWith(
+            configuration: .mockWith(applicationBundleIdentifier: "com.datadog.unit-tests")
         )
+        core.register(feature: feature)
     }
 
     override func tearDown() {
-        mockServer.waitAndAssertNoRequestsSent()
-        LoggingFeature.instance = nil
-        mockServer = nil
-
-        temporaryDirectory.delete()
+        core.flushAndTearDown()
+        core = nil
         super.tearDown()
     }
 
     func testDefaultLogger() throws {
-        let logger = Logger.builder.build()
+        let logger = Logger.builder.build(in: core)
 
-        guard let logBuilder = (logger.logOutput as? LogFileOutput)?.logBuilder else {
-            XCTFail()
-            return
-        }
+        let remoteLogger = try XCTUnwrap(logger.v2Logger as? RemoteLogger)
+        XCTAssertNil(remoteLogger.configuration.service)
+        XCTAssertEqual(remoteLogger.configuration.loggerName, "com.datadog.unit-tests")
+        XCTAssertFalse(remoteLogger.configuration.sendNetworkInfo)
+        XCTAssertEqual(remoteLogger.configuration.threshold, .debug)
+        XCTAssertNil(remoteLogger.configuration.eventMapper)
+        XCTAssertTrue(remoteLogger.rumContextIntegration)
+        XCTAssertTrue(remoteLogger.activeSpanIntegration)
+    }
 
-        let feature = LoggingFeature.instance!
-        XCTAssertEqual(logBuilder.applicationVersion, "1.2.3")
-        XCTAssertEqual(logBuilder.serviceName, "service-name")
-        XCTAssertEqual(logBuilder.environment, "tests")
-        XCTAssertEqual(logBuilder.loggerName, "com.datadog.unit-tests")
-        XCTAssertTrue(logBuilder.userInfoProvider === feature.userInfoProvider)
-        XCTAssertNil(logBuilder.networkConnectionInfoProvider)
-        XCTAssertNil(logBuilder.carrierInfoProvider)
+    func testDefaultLoggerWithRUMEnabled() throws {
+        let rum: RUMFeature = .mockAny()
+        core.register(feature: rum)
+
+        let logger1 = Logger.builder.build(in: core)
+        XCTAssertNotNil((logger1.v2Logger as? RemoteLogger)?.rumContextIntegration)
+
+        let logger2 = Logger.builder.bundleWithRUM(false).build()
+        XCTAssertNil((logger2.v2Logger as? RemoteLogger)?.rumContextIntegration)
+    }
+
+    func testDefaultLoggerWithTracingEnabled() throws {
+        let tracing: TracingFeature = .mockAny()
+        core.register(feature: tracing)
+
+        let logger1 = Logger.builder.build(in: core)
+        XCTAssertTrue(try XCTUnwrap(logger1.v2Logger as? RemoteLogger).activeSpanIntegration)
+
+        let logger2 = Logger.builder.bundleWithTrace(false).build(in: core)
+        XCTAssertFalse(try XCTUnwrap(logger2.v2Logger as? RemoteLogger).activeSpanIntegration)
     }
 
     func testCustomizedLogger() throws {
+        let rum: RUMFeature = .mockAny()
+        core.register(feature: rum)
+
+        let tracing: TracingFeature = .mockAny()
+        core.register(feature: tracing)
+
         let logger = Logger.builder
             .set(serviceName: "custom-service-name")
             .set(loggerName: "custom-logger-name")
             .sendNetworkInfo(true)
-            .build()
+            .bundleWithRUM(false)
+            .bundleWithTrace(false)
+            .set(datadogReportingThreshold: .error)
+            .build(in: core)
 
-        guard let logBuilder = (logger.logOutput as? LogFileOutput)?.logBuilder else {
-            XCTFail()
-            return
-        }
-
-        let feature = LoggingFeature.instance!
-        XCTAssertEqual(logBuilder.applicationVersion, "1.2.3")
-        XCTAssertEqual(logBuilder.serviceName, "custom-service-name")
-        XCTAssertEqual(logBuilder.environment, "tests")
-        XCTAssertEqual(logBuilder.loggerName, "custom-logger-name")
-        XCTAssertTrue(logBuilder.userInfoProvider === feature.userInfoProvider)
-        XCTAssertTrue(logBuilder.networkConnectionInfoProvider as AnyObject === feature.networkConnectionInfoProvider as AnyObject)
-        XCTAssertTrue(logBuilder.carrierInfoProvider as AnyObject === feature.carrierInfoProvider as AnyObject)
+        let remoteLogger = try XCTUnwrap(logger.v2Logger as? RemoteLogger)
+        XCTAssertEqual(remoteLogger.configuration.service, "custom-service-name")
+        XCTAssertEqual(remoteLogger.configuration.loggerName, "custom-logger-name")
+        XCTAssertTrue(remoteLogger.configuration.sendNetworkInfo)
+        XCTAssertEqual(remoteLogger.configuration.threshold, .error)
+        XCTAssertNil(remoteLogger.configuration.eventMapper)
+        XCTAssertFalse(remoteLogger.rumContextIntegration)
+        XCTAssertFalse(remoteLogger.activeSpanIntegration)
     }
 
-    func testUsingDifferentOutputs() throws {
-        assertThat(
-            logger: Logger.builder.build(),
-            usesOutput: LogFileOutput.self
-        )
-        assertThat(
-            logger: Logger.builder.sendLogsToDatadog(true).build(),
-            usesOutput: LogFileOutput.self
-        )
-        assertThat(
-            logger: Logger.builder.sendLogsToDatadog(false).build(),
-            usesOutput: NoOpLogOutput.self
-        )
-        assertThat(
-            logger: Logger.builder.printLogsToConsole(true).build(),
-            usesCombinedOutputs: [LogFileOutput.self, LogConsoleOutput.self]
-        )
-        assertThat(
-            logger: Logger.builder.printLogsToConsole(false).build(),
-            usesOutput: LogFileOutput.self
-        )
-        assertThat(
-            logger: Logger.builder.sendLogsToDatadog(true).printLogsToConsole(true).build(),
-            usesCombinedOutputs: [LogFileOutput.self, LogConsoleOutput.self]
-        )
-        assertThat(
-            logger: Logger.builder.sendLogsToDatadog(false).printLogsToConsole(true).build(),
-            usesOutput: LogConsoleOutput.self
-        )
-        assertThat(
-            logger: Logger.builder.sendLogsToDatadog(true).printLogsToConsole(false).build(),
-            usesOutput: LogFileOutput.self
-        )
-        assertThat(
-            logger: Logger.builder.sendLogsToDatadog(false).printLogsToConsole(false).build(),
-            usesOutput: NoOpLogOutput.self
-        )
-    }
-}
+    func testCombiningInternalLoggers() throws {
+        var logger: Logger
 
-// MARK: - Helpers
+        logger = Logger.builder.build(in: core)
+        XCTAssertTrue(logger.v2Logger is RemoteLogger)
 
-private func assertThat(logger: Logger, usesOutput outputType: LogOutput.Type, file: StaticString = #file, line: UInt = #line) {
-    XCTAssertTrue(type(of: logger.logOutput) == outputType, file: file, line: line)
-}
+        logger = Logger.builder.sendLogsToDatadog(true).build(in: core)
+        XCTAssertTrue(logger.v2Logger is RemoteLogger)
 
-private func assertThat(logger: Logger, usesCombinedOutputs outputTypes: [LogOutput.Type], file: StaticString = #file, line: UInt = #line) {
-    if let combinedOutputs = (logger.logOutput as? CombinedLogOutput)?.combinedOutputs {
-        XCTAssertEqual(outputTypes.count, combinedOutputs.count, file: file, line: line)
-        outputTypes.forEach { outputType in
-            XCTAssertTrue(combinedOutputs.contains { type(of: $0) == outputType }, file: file, line: line)
-        }
-    } else {
-        XCTFail(file: file, line: line)
+        logger = Logger.builder.sendLogsToDatadog(false).build(in: core)
+        XCTAssertTrue(logger.v2Logger is NOPLogger)
+
+        logger = Logger.builder.printLogsToConsole(true).build(in: core)
+        var combinedLogger = try XCTUnwrap(logger.v2Logger as? CombinedLogger)
+        XCTAssertTrue(combinedLogger.combinedLoggers[0] is RemoteLogger)
+        XCTAssertTrue(combinedLogger.combinedLoggers[1] is ConsoleLogger)
+
+        logger = Logger.builder.printLogsToConsole(false).build(in: core)
+        XCTAssertTrue(logger.v2Logger is RemoteLogger)
+
+        logger = Logger.builder.sendLogsToDatadog(true).printLogsToConsole(true).build(in: core)
+        combinedLogger = try XCTUnwrap(logger.v2Logger as? CombinedLogger)
+        XCTAssertTrue(combinedLogger.combinedLoggers[0] is RemoteLogger)
+        XCTAssertTrue(combinedLogger.combinedLoggers[1] is ConsoleLogger)
+
+        logger = Logger.builder.sendLogsToDatadog(false).printLogsToConsole(true).build(in: core)
+        XCTAssertTrue(logger.v2Logger is ConsoleLogger)
+
+        logger = Logger.builder.sendLogsToDatadog(true).printLogsToConsole(false).build(in: core)
+        XCTAssertTrue(logger.v2Logger is RemoteLogger)
+
+        logger = Logger.builder.sendLogsToDatadog(false).printLogsToConsole(false).build(in: core)
+        XCTAssertTrue(logger.v2Logger is NOPLogger)
     }
 }

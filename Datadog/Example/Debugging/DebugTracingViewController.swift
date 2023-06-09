@@ -1,7 +1,7 @@
 /*
  * Unless explicitly stated otherwise all files in this repository are licensed under the Apache License Version 2.0.
  * This product includes software developed at Datadog (https://www.datadoghq.com/).
- * Copyright 2019-2020 Datadog, Inc.
+ * Copyright 2019-Present Datadog, Inc.
  */
 
 import UIKit
@@ -23,7 +23,7 @@ class DebugTracingViewController: UIViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        serviceNameTextField.text = appConfig.serviceName
+        serviceNameTextField.text = (appConfiguration as? ExampleAppConfiguration)?.serviceName
         hideKeyboardWhenTapOutside()
         startDisplayingDebugInfo(in: consoleTextView)
     }
@@ -117,5 +117,5 @@ class DebugTracingViewController: UIViewController {
 }
 
 private func wait(seconds: TimeInterval) {
-    Thread.sleep(forTimeInterval: 0.5)
+    Thread.sleep(forTimeInterval: seconds)
 }

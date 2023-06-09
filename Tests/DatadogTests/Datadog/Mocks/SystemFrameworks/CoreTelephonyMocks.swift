@@ -1,9 +1,10 @@
 /*
  * Unless explicitly stated otherwise all files in this repository are licensed under the Apache License Version 2.0.
  * This product includes software developed at Datadog (https://www.datadoghq.com/).
- * Copyright 2019-2020 Datadog, Inc.
+ * Copyright 2019-Present Datadog, Inc.
  */
 
+#if canImport(CoreTelephony)
 import CoreTelephony
 
 /*
@@ -28,8 +29,8 @@ class CTCarrierMock: CTCarrier {
 }
 
 class CTTelephonyNetworkInfoMock: CTTelephonyNetworkInfo {
-    private let _serviceCurrentRadioAccessTechnology: [String: String]?
-    private let _serviceSubscriberCellularProviders: [String: CTCarrier]?
+    private var _serviceCurrentRadioAccessTechnology: [String: String]?
+    private var _serviceSubscriberCellularProviders: [String: CTCarrier]?
 
     init(
         serviceCurrentRadioAccessTechnology: [String: String],
@@ -37,6 +38,24 @@ class CTTelephonyNetworkInfoMock: CTTelephonyNetworkInfo {
     ) {
         _serviceCurrentRadioAccessTechnology = serviceCurrentRadioAccessTechnology
         _serviceSubscriberCellularProviders = serviceSubscriberCellularProviders
+    }
+
+    func changeCarrier(
+        newCarrierName: String,
+        newISOCountryCode: String,
+        newAllowsVOIP: Bool,
+        newRadioAccessTechnology: String
+    ) {
+        _serviceCurrentRadioAccessTechnology = [
+            "000001": newRadioAccessTechnology
+        ]
+        _serviceSubscriberCellularProviders = [
+            "000001": CTCarrierMock(carrierName: newCarrierName, isoCountryCode: newISOCountryCode, allowsVOIP: newAllowsVOIP)
+        ]
+
+        if #available(iOS 12.0, *) {
+            serviceSubscriberCellularProvidersDidUpdateNotifier?("000001")
+        }
     }
 
     // MARK: - iOS 12+
@@ -49,3 +68,5 @@ class CTTelephonyNetworkInfoMock: CTTelephonyNetworkInfo {
     override var currentRadioAccessTechnology: String? { _serviceCurrentRadioAccessTechnology?.first?.value }
     override var subscriberCellularProvider: CTCarrier? { _serviceSubscriberCellularProviders?.first?.value }
 }
+
+#endif

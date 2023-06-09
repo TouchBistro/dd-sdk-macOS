@@ -1,7 +1,7 @@
 /*
  * Unless explicitly stated otherwise all files in this repository are licensed under the Apache License Version 2.0.
  * This product includes software developed at Datadog (https://www.datadoghq.com/).
- * Copyright 2019-2020 Datadog, Inc.
+ * Copyright 2019-Present Datadog, Inc.
  */
 
 import Foundation
@@ -22,12 +22,13 @@ public class ServerProcessRunner {
     /// Waits until server is reachable.
     /// Returns `ServerProcess` instance if the server is running, `nil` otherwise.
     public func waitUntilServerIsReachable() -> ServerProcess? {
-        let deadline = Date(timeIntervalSinceNow: 3)
+        let deadline = Date(timeIntervalSinceNow: 10)
 
         while Date() < deadline {
             if ping() {
                 return ServerProcess(serverURL: serverURL)
             }
+            Thread.sleep(forTimeInterval: 0.5)
         }
 
         return nil

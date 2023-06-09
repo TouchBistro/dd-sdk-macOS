@@ -1,17 +1,17 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 
 # -----------------------------------------------------------
 # Unless explicitly stated otherwise all files in this repository are licensed under the Apache License Version 2.0.
 # This product includes software developed at Datadog (https://www.datadoghq.com/).
-# Copyright 2019-2020 Datadog, Inc.
+# Copyright 2019-Present Datadog, Inc.
 # -----------------------------------------------------------
 
 import socket
 
 class ServerAddress():
-    def __init__(self, ip, port):
-    	self.ip = ip
-    	self.port = port
+	def __init__(self, ip, port):
+		self.ip = ip
+		self.port = port
 
 def get_private_IP():
 	"""

@@ -1,80 +1,34 @@
 /*
  * Unless explicitly stated otherwise all files in this repository are licensed under the Apache License Version 2.0.
  * This product includes software developed at Datadog (https://www.datadoghq.com/).
- * Copyright 2019-2020 Datadog, Inc.
+ * Copyright 2019-Present Datadog, Inc.
  */
 
+import TestUtilities
 @testable import Datadog
 
 extension TracingFeature {
-    /// Mocks feature instance which performs no writes and no uploads.
-    static func mockNoOp(temporaryDirectory: Directory) -> TracingFeature {
-        return TracingFeature(
-            directory: temporaryDirectory,
-            configuration: .mockAny(),
-            performance: .combining(storagePerformance: .noOp, uploadPerformance: .noOp),
-            loggingFeatureAdapter: nil,
-            mobileDevice: .mockAny(),
-            httpClient: .mockAny(),
-            tracesUploadURLProvider: .mockAny(),
-            dateProvider: SystemDateProvider(),
-            tracingUUIDGenerator: DefaultTracingUUIDGenerator(),
-            userInfoProvider: .mockAny(),
-            networkConnectionInfoProvider: NetworkConnectionInfoProviderMock.mockWith(
-                networkConnectionInfo: .mockWith(
-                    reachability: .no // so it doesn't meet the upload condition
-                )
-            ),
-            carrierInfoProvider: CarrierInfoProviderMock.mockAny()
-        )
-    }
+    /// Mocks an instance of the feature that performs no writes to file system and does no uploads.
+    static func mockAny() -> TracingFeature { .mockWith() }
 
-    /// Mocks feature instance which performs uploads to given `ServerMock` with performance optimized for fast delivery in unit tests.
-    static func mockWorkingFeatureWith(
-        server: ServerMock,
-        directory: Directory,
-        configuration: Datadog.ValidConfiguration = .mockAny(),
-        performance: PerformancePreset = .combining(
-            storagePerformance: .writeEachObjectToNewFileAndReadAllFiles,
-            uploadPerformance: .veryQuick
-        ),
-        loggingFeature: LoggingFeature? = nil,
-        mobileDevice: MobileDevice = .mockWith(
-            currentBatteryStatus: {
-                // Mock full battery, so it doesn't rely on battery condition for the upload
-                return BatteryStatus(state: .full, level: 1, isLowPowerModeEnabled: false)
-            }
-        ),
-        tracesUploadURLProvider: UploadURLProvider = .mockAny(),
-        dateProvider: DateProvider = SystemDateProvider(),
-        tracingUUIDGenerator: TracingUUIDGenerator = DefaultTracingUUIDGenerator(),
-        userInfoProvider: UserInfoProvider = .mockAny(),
-        networkConnectionInfoProvider: NetworkConnectionInfoProviderType = NetworkConnectionInfoProviderMock.mockWith(
-            networkConnectionInfo: .mockWith(
-                reachability: .yes, // so it always meets the upload condition
-                availableInterfaces: [.wifi],
-                supportsIPv4: true,
-                supportsIPv6: true,
-                isExpensive: true,
-                isConstrained: false // so it always meets the upload condition
-            )
-        ),
-        carrierInfoProvider: CarrierInfoProviderType = CarrierInfoProviderMock.mockAny()
+    /// Mocks an instance of the feature that performs no writes to file system and does no uploads.
+    static func mockWith(
+        configuration: FeaturesConfiguration.Tracing = .mockAny(),
+        messageReceiver: FeatureMessageReceiver = TracingMessageReceiver()
     ) -> TracingFeature {
         return TracingFeature(
-            directory: directory,
+            storage: .mockNoOp(),
+            upload: .mockNoOp(),
             configuration: configuration,
-            performance: performance,
-            loggingFeatureAdapter: loggingFeature.flatMap { LoggingForTracingAdapter(loggingFeature: $0) },
-            mobileDevice: mobileDevice,
-            httpClient: HTTPClient(session: server.urlSession),
-            tracesUploadURLProvider: tracesUploadURLProvider,
-            dateProvider: dateProvider,
-            tracingUUIDGenerator: tracingUUIDGenerator,
-            userInfoProvider: userInfoProvider,
-            networkConnectionInfoProvider: networkConnectionInfoProvider,
-            carrierInfoProvider: carrierInfoProvider
+            messageReceiver: messageReceiver
         )
+    }
+}
+
+extension DatadogCoreProxy {
+    func waitAndReturnSpanMatchers(file: StaticString = #file, line: UInt = #line) throws -> [SpanMatcher] {
+        return try waitAndReturnEventsData(of: TracingFeature.self)
+            .map { eventData in try SpanMatcher.fromJSONObjectData(eventData) }
     }
 }
 
@@ -110,12 +64,12 @@ extension BaggageItems {
 }
 
 extension DDSpan {
-    static func mockAny() -> DDSpan {
-        return mockWith()
+    static func mockAny(in core: DatadogCoreProtocol) -> DDSpan {
+        return mockWith(core: core)
     }
 
     static func mockWith(
-        tracer: Tracer = .mockAny(),
+        tracer: Tracer,
         context: DDSpanContext = .mockAny(),
         operationName: String = .mockAny(),
         startTime: Date = .mockAny(),
@@ -123,6 +77,22 @@ extension DDSpan {
     ) -> DDSpan {
         return DDSpan(
             tracer: tracer,
+            context: context,
+            operationName: operationName,
+            startTime: startTime,
+            tags: tags
+        )
+    }
+
+    static func mockWith(
+        core: DatadogCoreProtocol,
+        context: DDSpanContext = .mockAny(),
+        operationName: String = .mockAny(),
+        startTime: Date = .mockAny(),
+        tags: [String: Encodable] = [:]
+    ) -> DDSpan {
+        return DDSpan(
+            tracer: .mockAny(in: core),
             context: context,
             operationName: operationName,
             startTime: startTime,
@@ -153,70 +123,166 @@ class RelativeTracingUUIDGenerator: TracingUUIDGenerator {
 
     func generateUnique() -> TracingUUID {
         return queue.sync {
-            defer { uuid = TracingUUID(rawValue: uuid.rawValue + count) }
+            defer { uuid = uuid + count }
             return uuid
         }
+    }
+}
+
+private func + (lhs: TracingUUID, rhs: UInt64) -> TracingUUID {
+    return TracingUUID(rawValue: (UInt64(lhs.toString(.decimal)) ?? 0) + rhs)
+}
+
+extension SpanEvent: AnyMockable, RandomMockable {
+    static func mockWith(
+        traceID: TracingUUID = .mockAny(),
+        spanID: TracingUUID = .mockAny(),
+        parentID: TracingUUID? = .mockAny(),
+        operationName: String = .mockAny(),
+        serviceName: String = .mockAny(),
+        resource: String = .mockAny(),
+        startTime: Date = .mockAny(),
+        duration: TimeInterval = .mockAny(),
+        isError: Bool = .mockAny(),
+        source: String = .mockAny(),
+        origin: String? = nil,
+        samplingRate: Float = 100,
+        isKept: Bool = true,
+        tracerVersion: String = .mockAny(),
+        applicationVersion: String = .mockAny(),
+        networkConnectionInfo: NetworkConnectionInfo? = .mockAny(),
+        mobileCarrierInfo: CarrierInfo? = .mockAny(),
+        userInfo: SpanEvent.UserInfo = .mockAny(),
+        tags: [String: String] = [:]
+    ) -> SpanEvent {
+        return SpanEvent(
+            traceID: traceID,
+            spanID: spanID,
+            parentID: parentID,
+            operationName: operationName,
+            serviceName: serviceName,
+            resource: resource,
+            startTime: startTime,
+            duration: duration,
+            isError: isError,
+            source: source,
+            origin: origin,
+            samplingRate: samplingRate,
+            isKept: isKept,
+            tracerVersion: tracerVersion,
+            applicationVersion: applicationVersion,
+            networkConnectionInfo: networkConnectionInfo,
+            mobileCarrierInfo: mobileCarrierInfo,
+            userInfo: userInfo,
+            tags: tags
+        )
+    }
+
+    public static func mockAny() -> SpanEvent { .mockWith() }
+
+    public static func mockRandom() -> SpanEvent {
+        return SpanEvent(
+            traceID: .init(rawValue: .mockRandom()),
+            spanID: .init(rawValue: .mockRandom()),
+            parentID: .init(rawValue: .mockRandom()),
+            operationName: .mockRandom(),
+            serviceName: .mockRandom(),
+            resource: .mockRandom(),
+            startTime: .mockRandomInThePast(),
+            duration: .mockRandom(),
+            isError: .random(),
+            source: .mockRandom(),
+            origin: .mockRandom(),
+            samplingRate: .mockRandom(),
+            isKept: .mockRandom(),
+            tracerVersion: .mockRandom(),
+            applicationVersion: .mockRandom(),
+            networkConnectionInfo: .mockRandom(),
+            mobileCarrierInfo: .mockRandom(),
+            userInfo: .mockRandom(),
+            tags: .mockRandom()
+        )
+    }
+}
+
+extension SpanEvent.UserInfo: AnyMockable, RandomMockable {
+    static func mockWith(
+        id: String? = .mockAny(),
+        name: String? = .mockAny(),
+        email: String? = .mockAny(),
+        extraInfo: [String: String] = [:]
+    ) -> SpanEvent.UserInfo {
+        return SpanEvent.UserInfo(
+            id: id,
+            name: name,
+            email: email,
+            extraInfo: extraInfo
+        )
+    }
+
+    public static func mockAny() -> SpanEvent.UserInfo { .mockWith() }
+
+    public static func mockRandom() -> SpanEvent.UserInfo {
+        return SpanEvent.UserInfo(
+            id: .mockRandom(),
+            name: .mockRandom(),
+            email: .mockRandom(),
+            extraInfo: .mockRandom()
+        )
     }
 }
 
 // MARK: - Component Mocks
 
 extension Tracer {
-    static func mockAny() -> Tracer {
-        return mockWith()
+    static func mockAny(in core: DatadogCoreProtocol) -> Tracer {
+        return mockWith(core: core)
     }
 
     static func mockWith(
-        spanOutput: SpanOutput = SpanOutputMock(),
-        logOutput: LoggingForTracingAdapter.AdaptedLogOutput = .init(loggingOutput: LogOutputMock()),
-        dateProvider: DateProvider = SystemDateProvider(),
+        core: DatadogCoreProtocol,
+        configuration: Configuration = .init(),
+        spanEventMapper: SpanEventMapper? = nil,
         tracingUUIDGenerator: TracingUUIDGenerator = DefaultTracingUUIDGenerator(),
-        globalTags: [String: Encodable]? = nil
+        dateProvider: DateProvider = SystemDateProvider(),
+        rumIntegration: TracingWithRUMIntegration? = nil
     ) -> Tracer {
         return Tracer(
-            spanOutput: spanOutput,
-            logOutput: logOutput,
-            dateProvider: dateProvider,
+            core: core,
+            configuration: configuration,
+            spanEventMapper: spanEventMapper,
             tracingUUIDGenerator: tracingUUIDGenerator,
-            globalTags: globalTags
+            dateProvider: dateProvider,
+            rumIntegration: rumIntegration,
+            loggingIntegration: .init(core: core, tracerConfiguration: configuration)
         )
     }
 }
 
-extension SpanBuilder {
-    static func mockAny() -> SpanBuilder {
+extension SpanEventBuilder {
+    static func mockAny() -> SpanEventBuilder {
         return mockWith()
     }
 
     static func mockWith(
-        applicationVersion: String = .mockAny(),
-        environment: String = .mockAny(),
         serviceName: String = .mockAny(),
-        userInfoProvider: UserInfoProvider = .mockAny(),
-        networkConnectionInfoProvider: NetworkConnectionInfoProviderType = NetworkConnectionInfoProviderMock.mockAny(),
-        carrierInfoProvider: CarrierInfoProviderType = CarrierInfoProviderMock.mockAny()
-    ) -> SpanBuilder {
-        return SpanBuilder(
-            applicationVersion: applicationVersion,
-            environment: environment,
+        sendNetworkInfo: Bool = false,
+        eventsMapper: SpanEventMapper? = nil
+    ) -> SpanEventBuilder {
+        return SpanEventBuilder(
             serviceName: serviceName,
-            userInfoProvider: userInfoProvider,
-            networkConnectionInfoProvider: networkConnectionInfoProvider,
-            carrierInfoProvider: carrierInfoProvider
+            sendNetworkInfo: sendNetworkInfo,
+            eventsMapper: eventsMapper
         )
     }
 }
 
-/// `SpanOutput` recording received spans.
-class SpanOutputMock: SpanOutput {
-    struct Recorded {
-        let span: DDSpan
-        let finishTime: Date
-    }
-
-    var recorded: Recorded? = nil
-
-    func write(ddspan: DDSpan, finishTime: Date) {
-        recorded = Recorded(span: ddspan, finishTime: finishTime)
+extension TracingWithLoggingIntegration.Configuration: AnyMockable {
+    public static func mockAny() -> TracingWithLoggingIntegration.Configuration {
+        .init(
+            service: .mockAny(),
+            loggerName: .mockAny(),
+            sendNetworkInfo: true
+        )
     }
 }

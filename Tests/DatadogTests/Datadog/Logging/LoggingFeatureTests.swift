@@ -1,7 +1,7 @@
 /*
  * Unless explicitly stated otherwise all files in this repository are licensed under the Apache License Version 2.0.
  * This product includes software developed at Datadog (https://www.datadoghq.com/).
- * Copyright 2019-2020 Datadog, Inc.
+ * Copyright 2019-Present Datadog, Inc.
  */
 
 import XCTest
@@ -10,91 +10,151 @@ import XCTest
 class LoggingFeatureTests: XCTestCase {
     override func setUp() {
         super.setUp()
-        XCTAssertNil(Datadog.instance)
-        XCTAssertNil(LoggingFeature.instance)
-        temporaryDirectory.create()
+        temporaryCoreDirectory.create()
     }
 
     override func tearDown() {
-        XCTAssertNil(Datadog.instance)
-        XCTAssertNil(LoggingFeature.instance)
-        temporaryDirectory.delete()
+        temporaryCoreDirectory.delete()
         super.tearDown()
     }
 
-    // MARK: - Initialization
+    // MARK: - HTTP Message
 
-    func testInitialization() throws {
-        let appContext: AppContext = .mockAny()
-        Datadog.initialize(
-            appContext: appContext,
-            configuration: Datadog.Configuration
-                .builderUsing(clientToken: "abc", environment: "tests")
-                .build()
-        )
+    func testItUsesExpectedHTTPMessage() throws {
+        let randomApplicationName: String = .mockRandom(among: .alphanumerics)
+        let randomApplicationVersion: String = .mockRandom()
+        let randomSource: String = .mockRandom(among: .alphanumerics)
+        let randomOrigin: String = .mockRandom(among: .alphanumerics)
+        let randomSDKVersion: String = .mockRandom(among: .alphanumerics)
+        let randomUploadURL: URL = .mockRandom()
+        let randomClientToken: String = .mockRandom()
+        let randomDeviceName: String = .mockRandom()
+        let randomDeviceOSName: String = .mockRandom()
+        let randomDeviceOSVersion: String = .mockRandom()
+        let randomEncryption: DataEncryption? = Bool.random() ? DataEncryptionMock() : nil
 
-        XCTAssertNotNil(LoggingFeature.instance)
-
-        try Datadog.deinitializeOrThrow()
-    }
-
-    // MARK: - HTTP Headers
-
-    func testItUsesExpectedHTTPHeaders() throws {
         let server = ServerMock(delivery: .success(response: .mockResponseWith(statusCode: 200)))
-        LoggingFeature.instance = .mockWorkingFeatureWith(
-            server: server,
-            directory: temporaryDirectory,
-            configuration: .mockWith(
-                applicationName: "FoobarApp",
-                applicationVersion: "2.1.0"
+        let httpClient = HTTPClient(session: server.getInterceptedURLSession())
+
+        let core = DatadogCore(
+            directory: temporaryCoreDirectory,
+            dateProvider: SystemDateProvider(),
+            initialConsent: .granted,
+            userInfoProvider: .mockAny(),
+            performance: .combining(
+                storagePerformance: .writeEachObjectToNewFileAndReadAllFiles,
+                uploadPerformance: .veryQuick
             ),
-            mobileDevice: .mockWith(model: "iPhone", osName: "iOS", osVersion: "13.3.1")
+            httpClient: httpClient,
+            encryption: randomEncryption,
+            contextProvider: .mockWith(
+                context: .mockWith(
+                    clientToken: randomClientToken,
+                    version: randomApplicationVersion,
+                    source: randomSource,
+                    sdkVersion: randomSDKVersion,
+                    ciAppOrigin: randomOrigin,
+                    applicationName: randomApplicationName,
+                    device: .mockWith(
+                        name: randomDeviceName,
+                        osName: randomDeviceOSName,
+                        osVersion: randomDeviceOSVersion
+                    )
+                )
+            ),
+            applicationVersion: randomApplicationVersion
         )
-        defer { LoggingFeature.instance = nil }
+        defer { core.flushAndTearDown() }
 
-        let logger = Logger.builder.build()
-        logger.debug("message")
+        // Given
+        let featureConfiguration: LoggingFeature.Configuration = .mockWith(uploadURL: randomUploadURL)
+        let feature: LoggingFeature = try core.create(
+            configuration: createLoggingConfiguration(
+                intake: randomUploadURL,
+                dateProvider: SystemDateProvider(),
+                logEventMapper: nil
+            ),
+            featureSpecificConfiguration: featureConfiguration
+        )
+        core.register(feature: feature)
 
-        let httpHeaders = server.waitAndReturnRequests(count: 1)[0].allHTTPHeaderFields
-        XCTAssertEqual(httpHeaders?["User-Agent"], "FoobarApp/2.1.0 CFNetwork (iPhone; iOS/13.3.1)")
-        XCTAssertEqual(httpHeaders?["Content-Type"], "application/json")
+        // When
+        let logger = Logger.builder.build(in: core)
+        logger.debug(.mockAny())
+
+        // Then
+        let request = server.waitAndReturnRequests(count: 1)[0]
+        let requestURL = try XCTUnwrap(request.url)
+        XCTAssertEqual(request.httpMethod, "POST")
+        XCTAssertTrue(requestURL.absoluteString.starts(with: randomUploadURL.absoluteString + "?"))
+        XCTAssertEqual(requestURL.query, "ddsource=\(randomSource)")
+        XCTAssertEqual(
+            request.allHTTPHeaderFields?["User-Agent"],
+            """
+            \(randomApplicationName)/\(randomApplicationVersion) CFNetwork (\(randomDeviceName); \(randomDeviceOSName)/\(randomDeviceOSVersion))
+            """
+        )
+        XCTAssertEqual(request.allHTTPHeaderFields?["Content-Type"], "application/json")
+        XCTAssertEqual(request.allHTTPHeaderFields?["Content-Encoding"], "deflate")
+        XCTAssertEqual(request.allHTTPHeaderFields?["DD-API-KEY"], randomClientToken)
+        XCTAssertEqual(request.allHTTPHeaderFields?["DD-EVP-ORIGIN"], randomOrigin)
+        XCTAssertEqual(request.allHTTPHeaderFields?["DD-EVP-ORIGIN-VERSION"], randomSDKVersion)
+        XCTAssertEqual(request.allHTTPHeaderFields?["DD-REQUEST-ID"]?.matches(regex: .uuidRegex), true)
     }
 
-    // MARK: - Payload Format
+    // MARK: - HTTP Payload
 
     func testItUsesExpectedPayloadFormatForUploads() throws {
         let server = ServerMock(delivery: .success(response: .mockResponseWith(statusCode: 200)))
-        LoggingFeature.instance = .mockWorkingFeatureWith(
-            server: server,
-            directory: temporaryDirectory,
+        let httpClient = HTTPClient(session: server.getInterceptedURLSession())
+
+        let core = DatadogCore(
+            directory: temporaryCoreDirectory,
+            dateProvider: SystemDateProvider(),
+            initialConsent: .granted,
+            userInfoProvider: .mockAny(),
             performance: .combining(
                 storagePerformance: StoragePerformanceMock(
                     maxFileSize: .max,
                     maxDirectorySize: .max,
-                    maxFileAgeForWrite: .distantFuture, // write all spans to single file,
+                    maxFileAgeForWrite: .distantFuture, // write all events to single file,
                     minFileAgeForRead: StoragePerformanceMock.readAllFiles.minFileAgeForRead,
                     maxFileAgeForRead: StoragePerformanceMock.readAllFiles.maxFileAgeForRead,
                     maxObjectsInFile: 3, // write 3 spans to payload,
                     maxObjectSize: .max
                 ),
                 uploadPerformance: UploadPerformanceMock(
-                    initialUploadDelay: 0.5, // wait enough until spans are written,
-                    defaultUploadDelay: 1,
+                    initialUploadDelay: 0.5, // wait enough until events are written,
                     minUploadDelay: 1,
                     maxUploadDelay: 1,
-                    uploadDelayDecreaseFactor: 1
+                    uploadDelayChangeRate: 0
                 )
-            )
+            ),
+            httpClient: httpClient,
+            encryption: nil,
+            contextProvider: .mockAny(),
+            applicationVersion: .mockAny()
         )
-        defer { LoggingFeature.instance = nil }
+        defer { core.flushAndTearDown() }
 
-        let logger = Logger.builder.build()
+        // Given
+        let featureConfiguration: LoggingFeature.Configuration = .mockAny()
+        let feature: LoggingFeature = try core.create(
+            configuration: createLoggingConfiguration(
+                intake: featureConfiguration.uploadURL,
+                dateProvider: SystemDateProvider(),
+                logEventMapper: nil
+            ),
+            featureSpecificConfiguration: featureConfiguration
+        )
+        core.register(feature: feature)
+
+        let logger = Logger.builder.build(in: core)
         logger.debug("log 1")
         logger.debug("log 2")
         logger.debug("log 3")
 
-        let payload = server.waitAndReturnRequests(count: 1)[0].httpBody!
+        let payload = try XCTUnwrap(server.waitAndReturnRequests(count: 1)[0].httpBody)
 
         // Expected payload format:
         // `[log1JSON,log2JSON,log3JSON]`

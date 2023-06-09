@@ -1,7 +1,7 @@
 /*
  * Unless explicitly stated otherwise all files in this repository are licensed under the Apache License Version 2.0.
  * This product includes software developed at Datadog (https://www.datadoghq.com/).
- * Copyright 2019-2020 Datadog, Inc.
+ * Copyright 2019-Present Datadog, Inc.
  */
 
 import XCTest
@@ -48,5 +48,18 @@ class DDSpanContextTests: XCTestCase {
         childBaggageItems.set(key: "foo", value: "b")
         XCTAssertEqual(parentBaggageItems.all["foo"], "a")
         XCTAssertEqual(childBaggageItems.all["foo"], "b")
+    }
+
+    func testChildItemsGetParentItems() {
+        let parentBaggageItems = BaggageItems(targetQueue: queue, parentSpanItems: nil)
+        let childBaggageItems = BaggageItems(targetQueue: queue, parentSpanItems: parentBaggageItems)
+
+        parentBaggageItems.set(key: "foo", value: "a")
+        childBaggageItems.set(key: "bar", value: "b")
+
+        XCTAssertEqual(childBaggageItems.get(key: "foo"), "a")
+
+        XCTAssertNil(parentBaggageItems.get(key: "bar"))
+        XCTAssertEqual(childBaggageItems.get(key: "bar"), "b")
     }
 }

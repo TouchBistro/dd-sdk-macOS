@@ -1,6 +1,35 @@
-platform :ios, '12.0'
+abstract_target 'Common' do
+  pod 'DatadogSDK', :git => 'GIT_REMOTE', :GIT_REFERENCE
+  pod 'DatadogSDKAlamofireExtension', :git => 'GIT_REMOTE', :GIT_REFERENCE
+  pod 'DatadogSDKCrashReporting', :git => 'GIT_REMOTE', :GIT_REFERENCE
+  pod 'Alamofire'
 
-target 'CPProject' do
-  use_frameworks!
-  pod 'DatadogSDK', :git => 'https://github.com/DataDog/dd-sdk-ios.git', :branch => 'REMOTE_GIT_BRANCH'
+  target 'App Dynamic iOS' do
+    platform :ios, '13.0'
+    use_frameworks!
+    pod 'DatadogSDKSessionReplay', :git => 'GIT_REMOTE', :GIT_REFERENCE
+  end
+
+  target 'App Static iOS' do
+    platform :ios, '13.0'
+    pod 'DatadogSDKSessionReplay', :git => 'GIT_REMOTE', :GIT_REFERENCE
+
+    target 'App Static iOS Tests' do
+      inherit! :search_paths
+    end
+  end
+
+  target 'App Dynamic tvOS' do
+    platform :tvos, '13.0'
+    use_frameworks!
+  end
+
+  target 'App Static tvOS' do
+    platform :tvos, '13.0'
+
+    target 'App Static tvOS Tests' do
+      inherit! :search_paths
+    end
+  end
+
 end

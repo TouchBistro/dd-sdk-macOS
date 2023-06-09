@@ -1,12 +1,20 @@
 /*
  * Unless explicitly stated otherwise all files in this repository are licensed under the Apache License Version 2.0.
  * This product includes software developed at Datadog (https://www.datadoghq.com/).
- * Copyright 2019-2020 Datadog, Inc.
+ * Copyright 2019-Present Datadog, Inc.
  */
 
 import Foundation
+import Compression
 import XCTest
 @testable import Datadog
+
+/// An utility header, added to each request by the `ServerMock` and removed while intercepting through `ServerMockProtocol`.
+/// It transmits an unique identifier of the `URLSession` instance obtained from `ServerMock`. It is used for consistency check
+/// installed in `ServerMockProtocol`, to ensure that the request completion is delivered to the right instance of `ServerMock`.
+///
+/// Added in RUMM-1381 to fix a range of flakiness caused by leaking asynchronous upload tasks.
+private let ddURLSessionUUIDHeaderField = "dd-urlsession-uuid"
 
 private class ServerMockProtocol: URLProtocol {
     override class func canInit(with request: URLRequest) -> Bool {
@@ -31,54 +39,68 @@ private class ServerMockProtocol: URLProtocol {
         }
     }
 
-    override func startLoading() {
-        guard let serverMock = ServerMock.activeInstance else {
-            preconditionFailure("Request was started while no `ServerMock` instance is active.")
-        }
+    /// An instance of the `ServerMock` configured to intercept request processed by this `URLProtocol`.
+    private weak var server: ServerMock?
 
-        if let response = serverMock.mockedResponse {
+    override init(request: URLRequest, cachedResponse: CachedURLResponse?, client: URLProtocolClient?) {
+        // Capture the active instance of `ServerMock`
+        server = ServerMock.activeInstance
+
+        // Get utility header value to match it with an active instance of `ServerMock`
+        let urlSessionUUID = UUID(uuidString: request.allHTTPHeaderFields![ddURLSessionUUIDHeaderField]!)!
+
+        super.init(
+            request: request.removing(httpHeaderField: ddURLSessionUUIDHeaderField), // remove utility header
+            cachedResponse: cachedResponse,
+            client: client
+        )
+
+        // Assert that the request will be intercepted by the right instance of `ServerMock`.
+        precondition(
+            server?.urlSessionUUID == urlSessionUUID,
+            """
+            ⚠️ Request to \(request.url?.absoluteString ?? "null") was sent to `ServerMock` with `urlSessionUUID`: \(urlSessionUUID.uuidString),
+            but it was received by the `ServerMock` with `urlSessionUUID`: \(server?.urlSessionUUID.uuidString ?? "<deallocated>")).
+            This indicates lack of test synchronization or cleanup and must be fixed, otherwise the test will become flaky.
+            """
+        )
+    }
+
+    override func startLoading() {
+        if let response = server?.mockedResponse {
             client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
         }
-        if let data = serverMock.mockedData {
+        if let data = server?.mockedData {
             client?.urlProtocol(self, didLoad: data)
         }
-        if let error = serverMock.mockedError {
+        if let error = server?.mockedError {
             client?.urlProtocol(self, didFailWithError: error)
         }
 
         client?.urlProtocolDidFinishLoading(self)
 
-        DispatchQueue.main.async {
-            serverMock.record(newRequest: self.request)
-        }
+        server?.record(newRequest: request)
     }
 
     override func stopLoading() {
-        precondition(ServerMock.activeInstance != nil, "Request was stopped while no `ServerMock` instance is active.")
+        // No-op. This method must be defined as this method is made abstract in a base class (`URLProtocol`).
     }
 }
-
-/// All unit tests use this shared `URLSession`.
-private let sharedURLSession: URLSession = {
-    let configuration = URLSessionConfiguration.ephemeral
-    configuration.protocolClasses = [ServerMockProtocol.self]
-    return URLSession(configuration: configuration)
-}()
 
 class ServerMock {
     static weak var activeInstance: ServerMock?
 
-    /// `URLSession` to be used for all networking that should be mocked by this `ServerMock`.
-    let urlSession: URLSession = sharedURLSession
-    private let queue = DispatchQueue(label: "com.datadoghq.ServerMock-\(UUID().uuidString)")
+    /// An unique identifier of the `URLSession` produced by this instance of `ServerMock`.
+    internal let urlSessionUUID = UUID()
+    private let queue: DispatchQueue
 
     fileprivate let mockedResponse: HTTPURLResponse?
     fileprivate let mockedData: Data?
-    fileprivate let mockedError: Error?
+    fileprivate let mockedError: NSError?
 
     enum Delivery {
         case success(response: HTTPURLResponse, data: Data = .mockAny())
-        case failure(error: Error)
+        case failure(error: NSError)
     }
 
     init(delivery: Delivery) {
@@ -94,6 +116,8 @@ class ServerMock {
         }
         precondition(Thread.isMainThread, "`ServerMock` should be initialized on the main thread.")
         precondition(ServerMock.activeInstance == nil, "Only one active instance of `ServerMock` is allowed at a time.")
+        self.queue = DispatchQueue(label: "com.datadoghq.ServerMock-\(urlSessionUUID.uuidString)")
+
         ServerMock.activeInstance = self
     }
 
@@ -101,7 +125,7 @@ class ServerMock {
         /// Following precondition will fail when `ServerMock` instance was retained ONLY by existing HTTP request callback.
         /// Such case means a programmer error, because the existing callback can impact result of the next unit test, causing a flakiness.
         ///
-        /// If that happens, make sure the `ServerMock` processess all calbacks before it gets deallocated:
+        /// If that happens, make sure the `ServerMock` processes all callbacks before it gets deallocated:
         ///
         ///     func testXYZ() {
         ///        let server = ServerMock(...)
@@ -126,6 +150,23 @@ class ServerMock {
 
     private var requests: [URLRequest] = []
     private var waitAndReturnRequestsExpectation: XCTestExpectation?
+
+    // MARK: - Obtaining URLSession
+
+    private var doesInterceptSession = false
+
+    /// Produces `URLSession` intercepted by this instance of `ServerMock`. The session will use `delegate` if it's provided.
+    /// Requests sent to this session can be obtained later with using `serverMock.wait...()` APIs.
+    func getInterceptedURLSession(delegate: URLSessionDelegate? = nil) -> URLSession {
+        precondition(!doesInterceptSession, "This instance of `ServerMock` already intercepts the `URLSession`. Re-use the existing one.")
+        doesInterceptSession = true
+
+        let configuration = URLSessionConfiguration.ephemeral
+        // Set utility header so we can identify this request in `ServerMockProtocol`.
+        configuration.httpAdditionalHeaders = [ddURLSessionUUIDHeaderField: urlSessionUUID.uuidString]
+        configuration.protocolClasses = [ServerMockProtocol.self]
+        return URLSession(configuration: configuration, delegate: delegate, delegateQueue: nil)
+    }
 
     // MARK: - Waiting for total number of requests
 
@@ -157,19 +198,19 @@ class ServerMock {
             fatalError("Can't happen.")
         case .timedOut:
             XCTFail("Exceeded timeout of \(timeout)s with receiving \(requests.count) out of \(count) expected requests.", file: file, line: line)
-            // Return array of dummy requests, so the crash will happen leter in the test code, properly
+            // Return array of dummy requests, so the crash will happen later in the test code, properly
             // printing the above error.
             return Array(repeating: .mockAny(), count: Int(count))
         case .invertedFulfillment:
             XCTFail("\(requests.count) requests were sent, but not expected.", file: file, line: line)
-            // Return array of dummy requests, so the crash will happen leter in the test code, properly
+            // Return array of dummy requests, so the crash will happen later in the test code, properly
             // printing the above error.
-            return queue.sync { requests }
+            return queue.sync { requests.map(decompress) }
         @unknown default:
             fatalError()
         }
 
-        return queue.sync { requests }
+        return queue.sync { requests.map(decompress) }
     }
 
     /// Waits until given number of request callbacks is completed (in total for this instance of `ServerMock`).
@@ -186,43 +227,79 @@ class ServerMock {
 
     // MARK: - Utils
 
-    /// Returns recommended timeout for delivering given number of requests if `.mockUnitTestsPerformancePreset()` is used for upload.
-    func recommendedTimeoutFor(numberOfRequestsMade: UInt) -> TimeInterval {
+    /// Returns recommended timeout for delivering given number of requests if test-tuned values are used for `PerformancePreset`.
+    private func recommendedTimeoutFor(numberOfRequestsMade: UInt) -> TimeInterval {
         let uploadPerformanceForTests = UploadPerformanceMock.veryQuick
         // Set the timeout to 40 times more than expected.
         // In `RUMM-311` we observed 0.66% of flakiness for 150 test runs on CI with arbitrary value of `20`.
-        return uploadPerformanceForTests.defaultUploadDelay * Double(numberOfRequestsMade) * 40
+        return uploadPerformanceForTests.initialUploadDelay * Double(numberOfRequestsMade) * 40
+    }
+
+    private func decompress(_ request: URLRequest) -> URLRequest {
+        guard
+            let body = request.httpBody,
+            request.allHTTPHeaderFields?["Content-Encoding"] == "deflate",
+            let data = Deflate.decode(body)
+        else {
+            // Returns the untouched request if the request body is not compressed
+            // using `deflate` algorithm, or if decompressing the body fails.
+            return request
+        }
+
+        var request = request
+        request.httpBody = data
+        return request
     }
 }
 
-// MARK: - Feature helpers
-
-extension ServerMock {
-    func waitAndReturnLogMatchers(count: UInt, file: StaticString = #file, line: UInt = #line) throws -> [LogMatcher] {
-        try waitAndReturnRequests(
-            count: count,
-            timeout: recommendedTimeoutFor(numberOfRequestsMade: count),
-            file: file,
-            line: line
-        )
-            .map { request in try request.httpBody.unwrapOrThrow() }
-            .flatMap { requestBody in try LogMatcher.fromArrayOfJSONObjectsData(requestBody, file: file, line: line) }
+extension Deflate {
+    /// Decompresses the data format using the `ZLIB` compression algorithm.
+    ///
+    /// The provided data format must be ZLIB Compressed Data Format as described in IETF RFC 1950
+    /// https://datatracker.ietf.org/doc/html/rfc1950
+    ///
+    /// - Parameters:
+    ///   - data: The compressed data.
+    ///   - capacity: Capacity of the allocated memory to contain the decoded data. 1MB by default.
+    /// - Returns: Decompressed data.
+    static func decode(_ data: Data, capacity: Int = 1_000_000) -> Data? {
+        // Skip `deflate` header (2 bytes) and checksum (4 bytes)
+        // validations and inflate raw deflated data.
+        let range = 2..<data.count - 4
+        return decompress(data.subdata(in: range), capacity: capacity)
     }
-}
 
-// MARK: - Tracing feature helpers
+    /// Decompresses the data using the `ZLIB` compression algorithm.
+    ///
+    /// The `Compression` library implements the zlib encoder at level 5 only. This compression level
+    /// provides a good balance between compression speed and compression ratio.
+    ///
+    /// This inflate implementation uses `compression_decode_buffer(_:_:_:_:_:_:)`
+    /// from the `Compression` framework by allocating a destination buffer of size `capacity`
+    /// and copying the result into a `Data` structure
+    ///
+    /// ref. https://developer.apple.com/documentation/compression/1481000-compression_decode_buffer
+    ///
+    /// - Parameters:
+    ///   - data: Raw deflated data stream.
+    ///   - capacity: Capacity of the allocated memory to contain the decoded data. 1MB by default.
+    /// - Returns: Decompressed data.
+    static func decompress(_ data: Data, capacity: Int = 1_000_000) -> Data? {
+        data.withUnsafeBytes {
+            guard let ptr = $0.bindMemory(to: UInt8.self).baseAddress else {
+                return nil
+            }
 
-extension ServerMock {
-    func waitAndReturnSpanMatchers(count: UInt, file: StaticString = #file, line: UInt = #line) throws -> [SpanMatcher] {
-        return try waitAndReturnRequests(
-            count: count,
-            timeout: recommendedTimeoutFor(numberOfRequestsMade: count),
-            file: file,
-            line: line
-        )
-        .map { request in try request.httpBody.unwrapOrThrow() }
-        .flatMap { requestBody in
-            try SpanMatcher.fromNewlineSeparatedJSONObjectsData(requestBody)
+            let buffer = UnsafeMutablePointer<UInt8>.allocate(capacity: capacity)
+            defer { buffer.deallocate() }
+
+            // Returns the number of bytes written to the destination buffer after
+            // decompressing the input. If there is not enough space in the destination
+            // buffer to hold the entire decompressed output, the function writes the
+            // first dst_size bytes to the buffer and returns dst_size. Note that this
+            // behavior differs from that of `compression_encode_buffer(_:_:_:_:_:_:)`.
+            let size = compression_decode_buffer(buffer, capacity, ptr, data.count, nil, COMPRESSION_ZLIB)
+            return Data(bytes: buffer, count: size)
         }
     }
 }

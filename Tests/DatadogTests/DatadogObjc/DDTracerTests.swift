@@ -1,7 +1,7 @@
 /*
  * Unless explicitly stated otherwise all files in this repository are licensed under the Apache License Version 2.0.
  * This product includes software developed at Datadog (https://www.datadoghq.com/).
- * Copyright 2019-2020 Datadog, Inc.
+ * Copyright 2019-Present Datadog, Inc.
  */
 
 import XCTest
@@ -9,27 +9,26 @@ import XCTest
 @testable import DatadogObjc
 
 class DDTracerTests: XCTestCase {
+    private var core: DatadogCoreProxy! // swiftlint:disable:this implicitly_unwrapped_optional
+
     override func setUp() {
         super.setUp()
-        XCTAssertNil(TracingFeature.instance)
-        temporaryDirectory.create()
+        core = DatadogCoreProxy()
+        defaultDatadogCore = core
     }
 
     override func tearDown() {
-        XCTAssertNil(TracingFeature.instance)
-        temporaryDirectory.delete()
+        defaultDatadogCore = NOPDatadogCore()
+        core.flushAndTearDown()
+        core = nil
         super.tearDown()
     }
 
     func testSendingCustomizedSpans() throws {
-        let server = ServerMock(delivery: .success(response: .mockResponseWith(statusCode: 200)))
-        TracingFeature.instance = .mockWorkingFeatureWith(
-            server: server,
-            directory: temporaryDirectory
-        )
-        defer { TracingFeature.instance = nil }
+        let feature: TracingFeature = .mockAny()
+        core.register(feature: feature)
 
-        let objcTracer = DDTracer.initialize(configuration: DDTracerConfiguration()).dd!
+        let objcTracer = DDTracer(configuration: DDTracerConfiguration()).dd!
 
         let objcSpan1 = objcTracer.startSpan("operation")
         let objcSpan2 = objcTracer.startSpan(
@@ -85,7 +84,7 @@ class DDTracerTests: XCTestCase {
             XCTAssertTrue(span.tracer === objcTracer)
         }
 
-        let spanMatchers = try server.waitAndReturnSpanMatchers(count: 5)
+        let spanMatchers = try core.waitAndReturnSpanMatchers()
 
         // assert operation name
         try spanMatchers[0...3].forEach { spanMatcher in
@@ -118,19 +117,13 @@ class DDTracerTests: XCTestCase {
     }
 
     func testSendingSpanLogs() throws {
-        let server = ServerMock(delivery: .success(response: .mockResponseWith(statusCode: 200)))
-        let loggingFeature = LoggingFeature.mockWorkingFeatureWith(
-            server: server,
-            directory: temporaryDirectory,
-            performance: .combining(storagePerformance: .readAllFiles, uploadPerformance: .veryQuick)
+        let logging: LoggingFeature = .mockWith(
+            messageReceiver: LogMessageReceiver.mockAny()
         )
-        TracingFeature.instance = .mockWorkingFeatureWith(
-            server: server,
-            directory: temporaryDirectory,
-            performance: .combining(storagePerformance: .noOp, uploadPerformance: .noOp),
-            loggingFeature: loggingFeature
-        )
-        defer { TracingFeature.instance = nil }
+        core.register(feature: logging)
+
+        let tracing: TracingFeature = .mockAny()
+        core.register(feature: tracing)
 
         let objcTracer = DDTracer(configuration: DDTracerConfiguration())
 
@@ -139,122 +132,239 @@ class DDTracerTests: XCTestCase {
         objcSpan.log(["bizz": NSNumber(10.5)])
         objcSpan.log(["buzz": NSURL(string: "https://example.com/image.png")!], timestamp: nil)
 
-        let logMatchers = try server.waitAndReturnLogMatchers(count: 3)
+        let logMatchers = try core.waitAndReturnLogMatchers()
 
         logMatchers[0].assertValue(forKey: "foo", equals: "bar")
         logMatchers[1].assertValue(forKey: "bizz", equals: 10.5)
         logMatchers[2].assertValue(forKey: "buzz", equals: "https://example.com/image.png")
+        objcSpan.finish()
+    }
+
+    func testSendingSpanLogsWithErrorFromArguments() throws {
+        let logging: LoggingFeature = .mockWith(
+            messageReceiver: LogMessageReceiver.mockAny()
+        )
+        core.register(feature: logging)
+
+        let tracing: TracingFeature = .mockAny()
+        core.register(feature: tracing)
+
+        let objcTracer = DDTracer(configuration: DDTracerConfiguration())
+
+        let objcSpan = objcTracer.startSpan("operation")
+        objcSpan.log(["foo": NSString(string: "bar")], timestamp: Date.mockDecember15th2019At10AMUTC())
+        objcSpan.setError(kind: "Swift error", message: "Ops!", stack: nil)
+
+        let logMatchers = try core.waitAndReturnLogMatchers()
+
+        logMatchers[0].assertValue(forKey: "foo", equals: "bar")
+
+        let errorLogMatcher = logMatchers[1]
+        errorLogMatcher.assertStatus(equals: "error")
+        errorLogMatcher.assertValue(forKey: "event", equals: "error")
+        errorLogMatcher.assertValue(forKey: "error.kind", equals: "Swift error")
+        errorLogMatcher.assertMessage(equals: "Ops!")
+        objcSpan.finish()
+    }
+
+    func testSendingSpanLogsWithErrorFromNSError() throws {
+        let logging: LoggingFeature = .mockWith(
+            messageReceiver: LogMessageReceiver.mockAny()
+        )
+        core.register(feature: logging)
+
+        let tracing: TracingFeature = .mockAny()
+        core.register(feature: tracing)
+
+        let objcTracer = DDTracer(configuration: DDTracerConfiguration())
+
+        let objcSpan = objcTracer.startSpan("operation")
+        objcSpan.log(["foo": NSString(string: "bar")], timestamp: Date.mockDecember15th2019At10AMUTC())
+        let error = NSError(
+            domain: "Tracer",
+            code: 1,
+            userInfo: [NSLocalizedDescriptionKey: "Ops!"]
+        )
+        objcSpan.setError(error)
+
+        let logMatchers = try core.waitAndReturnLogMatchers()
+
+        logMatchers[0].assertValue(forKey: "foo", equals: "bar")
+
+        let errorLogMatcher = logMatchers[1]
+        errorLogMatcher.assertStatus(equals: "error")
+        errorLogMatcher.assertValue(forKey: "event", equals: "error")
+        errorLogMatcher.assertValue(forKey: "error.kind", equals: "Tracer - 1")
+        errorLogMatcher.assertMessage(equals: "Ops!")
+        objcSpan.finish()
     }
 
     func testInjectingSpanContextToValidCarrierAndFormat() throws {
-        let objcTracer = DDTracer(swiftTracer: Tracer.mockAny())
+        let objcTracer = DDTracer(swiftTracer: Tracer.mockAny(in: core))
         let objcSpanContext = DDSpanContextObjc(
             swiftSpanContext: DDSpanContext.mockWith(traceID: 1, spanID: 2)
         )
 
-        let objcWriter = DDHTTPHeadersWriter()
-        try objcTracer.inject(objcSpanContext, format: OTFormatHTTPHeaders, carrier: objcWriter)
+        let objcWriter = DDHTTPHeadersWriter(samplingRate: 100)
+        try objcTracer.inject(objcSpanContext, format: OT.formatTextMap, carrier: objcWriter)
 
         let expectedHTTPHeaders = [
             "x-datadog-trace-id": "1",
             "x-datadog-parent-id": "2",
+            "x-datadog-sampling-priority": "1",
         ]
-        let swiftWritter = objcWriter.swiftHTTPHeadersWriter
-        XCTAssertEqual(swiftWritter.tracePropagationHTTPHeaders, expectedHTTPHeaders)
+        XCTAssertEqual(objcWriter.tracePropagationHTTPHeaders, expectedHTTPHeaders)
+    }
+
+    func testInjectingRejectedSpanContextToValidCarrierAndFormat() throws {
+        let objcTracer = DDTracer(swiftTracer: Tracer.mockAny(in: core))
+        let objcSpanContext = DDSpanContextObjc(
+            swiftSpanContext: DDSpanContext.mockWith(traceID: 1, spanID: 2)
+        )
+
+        let objcWriter = DDHTTPHeadersWriter(samplingRate: 0)
+        try objcTracer.inject(objcSpanContext, format: OT.formatTextMap, carrier: objcWriter)
+
+        let expectedHTTPHeaders = [
+            "x-datadog-sampling-priority": "0",
+        ]
+        XCTAssertEqual(objcWriter.tracePropagationHTTPHeaders, expectedHTTPHeaders)
     }
 
     func testInjectingSpanContextToInvalidCarrierOrFormat() throws {
-        let objcTracer = DDTracer(swiftTracer: Tracer.mockAny())
+        let objcTracer = DDTracer(swiftTracer: Tracer.mockAny(in: core))
         let objcSpanContext = DDSpanContextObjc(swiftSpanContext: DDSpanContext.mockWith(traceID: 1, spanID: 2))
 
-        let objcValidWriter = DDHTTPHeadersWriter()
+        let objcValidWriter = DDHTTPHeadersWriter(samplingRate: 100)
         let objcInvalidFormat = "foo"
         XCTAssertThrowsError(
             try objcTracer.inject(objcSpanContext, format: objcInvalidFormat, carrier: objcValidWriter)
         )
 
         let objcInvalidWriter = NSObject()
-        let objcValidFormat = OTFormatHTTPHeaders
+        let objcValidFormat = OT.formatTextMap
         XCTAssertThrowsError(
             try objcTracer.inject(objcSpanContext, format: objcValidFormat, carrier: objcInvalidWriter)
         )
     }
 
-    func testWhenSettingGlobalTracer_itSetsSwiftTracerAswell() {
-        XCTAssertTrue(OTGlobal.sharedTracer === noopTracer)
+    func testInjectingSpanContextToValidCarrierAndFormatForOTel() throws {
+        let objcTracer = DDTracer(swiftTracer: Tracer.mockAny(in: core))
+        let objcSpanContext = DDSpanContextObjc(
+            swiftSpanContext: DDSpanContext.mockWith(traceID: 1, spanID: 2)
+        )
 
-        let swiftTracer = Tracer.mockAny()
-        let objcTracer = DDTracer(swiftTracer: swiftTracer)
+        let objcWriter = DDOTelHTTPHeadersWriter(samplingRate: 100)
+        try objcTracer.inject(objcSpanContext, format: OT.formatTextMap, carrier: objcWriter)
 
-        let previousObjcTracer = OTGlobal.sharedTracer
-        let previousSwiftTracer = Global.sharedTracer
-        OTGlobal.initSharedTracer(objcTracer)
-        defer {
-            OTGlobal.sharedTracer = previousObjcTracer
-            Global.sharedTracer = previousSwiftTracer
-        }
+        let expectedHTTPHeaders = [
+            "b3": "00000000000000000000000000000001-0000000000000002-1-0000000000000000"
+        ]
+        XCTAssertEqual(objcWriter.tracePropagationHTTPHeaders, expectedHTTPHeaders)
+    }
 
-        XCTAssertTrue(OTGlobal.sharedTracer === objcTracer)
-        XCTAssertTrue(Global.sharedTracer as? Tracer === swiftTracer)
+    func testInjectingRejectedSpanContextToValidCarrierAndFormatForOTel() throws {
+        let objcTracer = DDTracer(swiftTracer: Tracer.mockAny(in: core))
+        let objcSpanContext = DDSpanContextObjc(
+            swiftSpanContext: DDSpanContext.mockWith(traceID: 1, spanID: 2)
+        )
+
+        let objcWriter = DDOTelHTTPHeadersWriter(samplingRate: 0)
+        try objcTracer.inject(objcSpanContext, format: OT.formatTextMap, carrier: objcWriter)
+
+        let expectedHTTPHeaders = [
+            "b3": "0",
+        ]
+        XCTAssertEqual(objcWriter.tracePropagationHTTPHeaders, expectedHTTPHeaders)
+    }
+
+    func testInjectingSpanContextToInvalidCarrierOrFormatForOTel() throws {
+        let objcTracer = DDTracer(swiftTracer: Tracer.mockAny(in: core))
+        let objcSpanContext = DDSpanContextObjc(swiftSpanContext: DDSpanContext.mockWith(traceID: 1, spanID: 2))
+
+        let objcValidWriter = DDOTelHTTPHeadersWriter(samplingRate: 100)
+        let objcInvalidFormat = "foo"
+        XCTAssertThrowsError(
+            try objcTracer.inject(objcSpanContext, format: objcInvalidFormat, carrier: objcValidWriter)
+        )
+
+        let objcInvalidWriter = NSObject()
+        let objcValidFormat = OT.formatTextMap
+        XCTAssertThrowsError(
+            try objcTracer.inject(objcSpanContext, format: objcValidFormat, carrier: objcInvalidWriter)
+        )
+    }
+
+    func testInjectingSpanContextToValidCarrierAndFormatForW3C() throws {
+        let objcTracer = DDTracer(swiftTracer: Tracer.mockAny(in: core))
+        let objcSpanContext = DDSpanContextObjc(
+            swiftSpanContext: DDSpanContext.mockWith(traceID: 1, spanID: 2)
+        )
+
+        let objcWriter = DDW3CHTTPHeadersWriter(samplingRate: 100)
+        try objcTracer.inject(objcSpanContext, format: OT.formatTextMap, carrier: objcWriter)
+
+        let expectedHTTPHeaders = [
+            "traceparent": "00-00000000000000000000000000000001-0000000000000002-01"
+        ]
+        XCTAssertEqual(objcWriter.tracePropagationHTTPHeaders, expectedHTTPHeaders)
+    }
+
+    func testInjectingRejectedSpanContextToValidCarrierAndFormatForW3C() throws {
+        let objcTracer = DDTracer(swiftTracer: Tracer.mockAny(in: core))
+        let objcSpanContext = DDSpanContextObjc(
+            swiftSpanContext: DDSpanContext.mockWith(traceID: 1, spanID: 2)
+        )
+
+        let objcWriter = DDW3CHTTPHeadersWriter(samplingRate: 0)
+        try objcTracer.inject(objcSpanContext, format: OT.formatTextMap, carrier: objcWriter)
+
+        let expectedHTTPHeaders = [
+            "traceparent": "00-00000000000000000000000000000001-0000000000000002-00"
+        ]
+        XCTAssertEqual(objcWriter.tracePropagationHTTPHeaders, expectedHTTPHeaders)
+    }
+
+    func testInjectingSpanContextToInvalidCarrierOrFormatForW3C() throws {
+        let objcTracer = DDTracer(swiftTracer: Tracer.mockAny(in: core))
+        let objcSpanContext = DDSpanContextObjc(swiftSpanContext: DDSpanContext.mockWith(traceID: 1, spanID: 2))
+
+        let objcValidWriter = DDW3CHTTPHeadersWriter(samplingRate: 100)
+        let objcInvalidFormat = "foo"
+        XCTAssertThrowsError(
+            try objcTracer.inject(objcSpanContext, format: objcInvalidFormat, carrier: objcValidWriter)
+        )
+
+        let objcInvalidWriter = NSObject()
+        let objcValidFormat = OT.formatTextMap
+        XCTAssertThrowsError(
+            try objcTracer.inject(objcSpanContext, format: objcValidFormat, carrier: objcInvalidWriter)
+        )
     }
 
     // MARK: - Usage errors
 
-    func testsWhenUsingUnexpectedOTTracer() throws {
-        let previousObjcTracer = OTGlobal.sharedTracer
+    func testsWhenTagsDictionaryContainsInvalidKeys_thenThosesTagsAreDropped() throws {
+        let feature: TracingFeature = .mockAny()
+        core.register(feature: feature)
 
-        OTGlobal.initSharedTracer(noopTracer)
+        // Given
+        let objcTracer = DDTracer(configuration: DDTracerConfiguration()).dd!
 
-        XCTAssertTrue(OTGlobal.sharedTracer === previousObjcTracer)
-        XCTAssertFalse(Global.sharedTracer is Tracer)
-    }
-
-    func testsWhenUsingUnexpectedOTSpanContext() throws {
-        let objcTracer = DDTracer(swiftTracer: Tracer.mockAny())
-
-        XCTAssertNil(objcTracer.startSpan(.mockAny(), childOf: noopSpanContext).dd!.swiftSpan.dd.ddContext.parentSpanID)
-        XCTAssertNil(objcTracer.startSpan(.mockAny(), childOf: noopSpanContext, tags: NSDictionary()).dd!.swiftSpan.dd.ddContext.parentSpanID)
-        XCTAssertNil(objcTracer.startSpan(.mockAny(), childOf: noopSpanContext, tags: NSDictionary(), startTime: .mockAny()).dd!.swiftSpan.dd.ddContext.parentSpanID)
-
-        let objcWriter = DDHTTPHeadersWriter()
-        try objcTracer.inject(noopSpanContext, format: OTFormatHTTPHeaders, carrier: objcWriter)
-        XCTAssertEqual(objcWriter.swiftHTTPHeadersWriter.tracePropagationHTTPHeaders.count, 0)
-    }
-
-    func testsWhenUsingUnexpectedTagsDictionary() throws {
-        let objcTracer = DDTracer(swiftTracer: Tracer.mockAny())
-
-        let tags = NSDictionary(dictionary: [1: "string"])
+        // When
+        let tags = NSDictionary(
+            dictionary: [
+                123: "tag with invalid key",
+                "valid-tag": "tag with valid key"
+            ]
+        )
         let objcSpan = objcTracer.startSpan(.mockAny(), tags: tags)
+        objcSpan.finish()
 
-        XCTAssertEqual(objcSpan.dd?.swiftSpan.dd.tags.count, 0)
-    }
-
-    func testUsingNoopTracerIsSafe() {
-        // noop Tracer
-        XCTAssertTrue(noopTracer.startSpan(.mockAny()) === noopSpan)
-        XCTAssertTrue(noopTracer.startSpan(.mockAny(), tags: nil) === noopSpan)
-        XCTAssertTrue(noopTracer.startSpan(.mockAny(), childOf: nil) === noopSpan)
-        XCTAssertTrue(noopTracer.startSpan(.mockAny(), childOf: nil, tags: nil) === noopSpan)
-        XCTAssertTrue(noopTracer.startSpan(.mockAny(), childOf: nil, tags: nil, startTime: nil) === noopSpan)
-        XCTAssertNoThrow(try noopTracer.inject(noopSpanContext, format: .mockAny(), carrier: NSObject()))
-        XCTAssertNoThrow(try noopTracer.extractWithFormat(.mockAny(), carrier: NSObject()))
-
-        // noop Span
-        XCTAssertTrue(noopSpan.context === noopSpanContext)
-        XCTAssertTrue(noopSpan.tracer === noopTracer)
-        noopSpan.setOperationName(.mockAny())
-        noopSpan.setTag(.mockAny(), value: "")
-        noopSpan.setTag(.mockAny(), numberValue: 0)
-        noopSpan.setTag(.mockAny(), boolValue: false)
-        noopSpan.log([:])
-        noopSpan.log([:], timestamp: nil)
-        _ = noopSpan.setBaggageItem(.mockAny(), value: .mockAny())
-        _ = noopSpan.getBaggageItem(.mockAny())
-        noopSpan.finish()
-        noopSpan.finishWithTime(nil)
-
-        // noop SpanContext
-        noopSpanContext.forEachBaggageItem { _, _ in false }
+        // Then
+        let spanMatchers = try core.waitAndReturnSpanMatchers()
+        XCTAssertEqual(spanMatchers.count, 1)
+        XCTAssertNil(try? spanMatchers[0].meta.custom(keyPath: "meta.123"), "123 is not a valid tag-key, so it should be dropped")
+        XCTAssertNotNil(try? spanMatchers[0].meta.custom(keyPath: "meta.valid-tag"))
     }
 }

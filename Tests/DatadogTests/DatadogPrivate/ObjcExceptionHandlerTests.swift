@@ -1,14 +1,14 @@
 /*
  * Unless explicitly stated otherwise all files in this repository are licensed under the Apache License Version 2.0.
  * This product includes software developed at Datadog (https://www.datadoghq.com/).
- * Copyright 2019-2020 Datadog, Inc.
+ * Copyright 2019-Present Datadog, Inc.
  */
 
 import XCTest
-import _Datadog_Private
+import Datadog
 
 class ObjcExceptionHandlerTests: XCTestCase {
-    private let exceptionHandler = ObjcExceptionHandler()
+    private let exceptionHandler = __dd_private_ObjcExceptionHandler()
 
     func testGivenNonThrowingCode_itDoesNotThrow() throws {
         var counter = 0

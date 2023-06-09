@@ -1,7 +1,7 @@
 /*
 * Unless explicitly stated otherwise all files in this repository are licensed under the Apache License Version 2.0.
 * This product includes software developed at Datadog (https://www.datadoghq.com/).
-* Copyright 2019-2020 Datadog, Inc.
+* Copyright 2019-Present Datadog, Inc.
 */
 
 import XCTest
@@ -14,7 +14,7 @@ final class HTTPServerMockTests: XCTestCase {
     override func setUp() {
         super.setUp()
         self.process = Process()
-        self.process.launchPath = "/usr/bin/python"
+        self.process.launchPath = "/usr/bin/python3"
         self.process.arguments = [serverPythonScriptPath(), "--prefer-localhost"]
         self.process.launch()
     }
@@ -25,7 +25,7 @@ final class HTTPServerMockTests: XCTestCase {
     }
     #endif
 
-    func testItReturnsHTTPBodyOfRecordedPOSTRequests() throws {
+    func testItReturnsRecordedRequests() throws {
         let runner = ServerProcessRunner(serverURL: URL(string: "http://127.0.0.1:8000")!)
         guard let serverProces = runner.waitUntilServerIsReachable() else {
             XCTFail("Failed to connect with the server.")
@@ -44,7 +44,7 @@ final class HTTPServerMockTests: XCTestCase {
             body: "2nd request body".data(using: .utf8)!
         )
 
-        let recordedRequests = try session.getRecordedPOSTRequests()
+        let recordedRequests = try session.getRecordedRequests()
 
         XCTAssertEqual(recordedRequests.count, 2)
         XCTAssertTrue(recordedRequests[0].path.hasSuffix("/resource/1"))
@@ -53,7 +53,7 @@ final class HTTPServerMockTests: XCTestCase {
         XCTAssertEqual(recordedRequests[1].httpBody, "2nd request body".data(using: .utf8)!)
     }
 
-    func testItReturnspullRecordedPOSTRequests() throws {
+    func testItPullsRecordedRequests() throws {
         let runner = ServerProcessRunner(serverURL: URL(string: "http://127.0.0.1:8000")!)
         guard let serverProces = runner.waitUntilServerIsReachable() else {
             XCTFail("Failed to connect with the server.")
@@ -77,7 +77,9 @@ final class HTTPServerMockTests: XCTestCase {
             )
         }
         let timeoutTime: TimeInterval = 2
-        let recordedRequests = try session.pullRecordedPOSTRequests(count: 2, timeout: timeoutTime)
+        let recordedRequests = try session.pullRecordedRequests(timeout: timeoutTime) { requests in
+            requests.count == 2
+        }
         XCTAssertLessThan(Date(), initialTime.addingTimeInterval(timeoutTime))
         XCTAssertEqual(recordedRequests.count, 2)
         XCTAssertTrue(recordedRequests[0].path.hasSuffix("/resource/1"))
@@ -86,7 +88,7 @@ final class HTTPServerMockTests: XCTestCase {
         XCTAssertEqual(recordedRequests[1].httpBody, "2nd request body".data(using: .utf8)!)
     }
 
-    func testWhenPullingRecordedPOSTRequestExceedsTimeout_itThrownsAnError() throws {
+    func testWhenPullingRecordedRequestExceedsTimeout_itThrowsAnError() throws {
         let runner = ServerProcessRunner(serverURL: URL(string: "http://127.0.0.1:8000")!)
         guard let serverProces = runner.waitUntilServerIsReachable() else {
             XCTFail("Failed to connect with the server.")
@@ -96,25 +98,14 @@ final class HTTPServerMockTests: XCTestCase {
         let server = ServerMock(serverProcess: serverProces)
         let session = server.obtainUniqueRecordingSession()
 
-        DispatchQueue.global(qos: .userInitiated).async {
-            Thread.sleep(forTimeInterval: 2)
-            sendPOSTRequestAsynchronouslyTo(
-                url: session.recordingURL.appendingPathComponent("/resource/1"),
-                body: "1st request body".data(using: .utf8)!
-            )
-            Thread.sleep(forTimeInterval: 2)
-            sendPOSTRequestAsynchronouslyTo(
-                url: session.recordingURL.appendingPathComponent("/resource/2"),
-                body: "2nd request body".data(using: .utf8)!
+        XCTAssertThrowsError(
+            try session.pullRecordedRequests(timeout: 1) { $0.count == 1 }
+        ) { error in
+            XCTAssertEqual(
+                (error as? Exception)?.description,
+                "Exceeded 1.0s timeout with pulling 0 requests and not meeting the `condition()`."
             )
         }
-
-        let timeoutTime: TimeInterval = 2
-        var thrownError: Error?
-        XCTAssertThrowsError(try session.pullRecordedPOSTRequests(count: 2, timeout: timeoutTime)) {
-            thrownError = $0
-        }
-        XCTAssertTrue(thrownError is ServerSession.Exception, "Unexpected error type: \(type(of: thrownError))")
     }
 }
 
@@ -137,7 +128,7 @@ private func resolveSwiftPackageFolder() -> URL {
         }
     }
 
-    fatalError("Cannot resolve the URL to folder containing `Package.swif`.")
+    fatalError("Cannot resolve the URL to folder containing `Package.swift`.")
 }
 
 private func sendPOSTRequestSynchronouslyTo(url: URL, body: Data) {

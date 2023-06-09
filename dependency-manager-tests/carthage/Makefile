@@ -1,18 +1,27 @@
-ifdef ci
-		GIT_BRANCH := ${BITRISE_GIT_BRANCH}
-else
-		GIT_BRANCH := $(shell git rev-parse --abbrev-ref HEAD)
+GIT_REFERENCE := $(shell git rev-parse --abbrev-ref HEAD)
+ifneq (${BITRISE_GIT_BRANCH},)
+	GIT_REFERENCE := ${BITRISE_GIT_BRANCH}
+endif
+ifneq (${BITRISE_GIT_TAG},)
+	GIT_REFERENCE := ${BITRISE_GIT_TAG}
 endif
 
-PWD := $(shell pwd)
+GIT_REMOTE := "DataDog/dd-sdk-ios"
+ifneq (${BITRISEIO_PULL_REQUEST_REPOSITORY_URL},)
+	GIT_REMOTE := ${BITRISEIO_PULL_REQUEST_REPOSITORY_URL}
+endif
 
 test:
-		@echo "⚙️  Configuring CTProject with remote branch: '${GIT_BRANCH}'..."
-		@sed "s|REMOTE_GIT_BRANCH|${GIT_BRANCH}|g" Cartfile.src > Cartfile
+		@echo "⚙️  Configuring CTProject with remote branch: '${GIT_REFERENCE}'..."
+		
+		@sed "s|GIT_REFERENCE|${GIT_REFERENCE}|g" Cartfile.src | \
+		sed "s|GIT_REMOTE|${GIT_REMOTE}|g" > Cartfile
 		@rm -rf Carthage/
 		@echo "🧪 Run 'carthage update'"
-		@carthage update --platform iOS
-		@echo "🧪 Check if expected frameworks exist in $(PWD)/Carthage/Build/iOS"
-		@[ -e "Carthage/Build/iOS/Datadog.framework" ] && echo "Datadog.framework - OK" || { echo "Datadog.framework - missing"; false; }
-		@[ -e "Carthage/Build/iOS/DatadogObjc.framework" ] && echo "DatadogObjc.framework - OK" || { echo "DatadogObjc.framework - missing"; false; }
+		@carthage update --platform iOS,tvOS --use-xcframeworks
+		@echo "🧪 Check if expected frameworks exist in $(PWD)/Carthage/Build/"
+		@[ -e "Carthage/Build/Datadog.xcframework" ] && echo "Datadog.xcframework - OK" || { echo "Datadog.xcframework - missing"; false; }
+		@[ -e "Carthage/Build/DatadogObjc.xcframework" ] && echo "DatadogObjc.xcframework - OK" || { echo "DatadogObjc.xcframework - missing"; false; }
+		@[ -e "Carthage/Build/DatadogCrashReporting.xcframework" ] && echo "DatadogCrashReporting.xcframework - OK" || { echo "DatadogCrashReporting.xcframework - missing"; false; }
+		@[ -e "Carthage/Build/CrashReporter.xcframework" ] && echo "CrashReporter.xcframework - OK" || { echo "CrashReporter.xcframework - missing"; false; }
 		@echo "🧪 SUCCEEDED"

@@ -1,131 +1,81 @@
 /*
  * Unless explicitly stated otherwise all files in this repository are licensed under the Apache License Version 2.0.
  * This product includes software developed at Datadog (https://www.datadoghq.com/).
- * Copyright 2019-2020 Datadog, Inc.
+ * Copyright 2019-Present Datadog, Inc.
  */
 
 import XCTest
+import TestUtilities
 @testable import Datadog
 
-class DataUploadURLProviderTests: XCTestCase {
-    func testDDSourceQueryItem() {
-        let item: UploadURLProvider.QueryItemProvider = .ddsource()
-
-        XCTAssertEqual(item.value().name, "ddsource")
-        XCTAssertEqual(item.value().value, "ios")
-    }
-
-    func testBatchTimeQueryItem() {
-        let dateProvider = RelativeDateProvider(using: Date.mockDecember15th2019At10AMUTC())
-        let item: UploadURLProvider.QueryItemProvider = .batchTime(using: dateProvider)
-
-        XCTAssertEqual(item.value().name, "batch_time")
-        XCTAssertEqual(item.value().value, "1576404000000")
-        dateProvider.advance(bySeconds: 9.999)
-        XCTAssertEqual(item.value().name, "batch_time")
-        XCTAssertEqual(item.value().value, "1576404009999")
-    }
-
-    func testItBuildsValidURLUsingNoQueryItems() throws {
-        let urlProvider = UploadURLProvider(
-            urlWithClientToken: URL(string: "https://api.example.com/v1/endpoint/abc")!,
-            queryItemProviders: []
-        )
-
-        XCTAssertEqual(urlProvider.url, URL(string: "https://api.example.com/v1/endpoint/abc?"))
-    }
-
-    func testItBuildsValidURLUsingAllQueryItems() throws {
-        let dateProvider = RelativeDateProvider(using: Date.mockDecember15th2019At10AMUTC())
-        let urlProvider = UploadURLProvider(
-            urlWithClientToken: URL(string: "https://api.example.com/v1/endpoint/abc")!,
-            queryItemProviders: [.ddsource(), .batchTime(using: dateProvider)]
-        )
-
-        XCTAssertEqual(urlProvider.url, URL(string: "https://api.example.com/v1/endpoint/abc?ddsource=ios&batch_time=1576404000000"))
-        dateProvider.advance(bySeconds: 9.999)
-        XCTAssertEqual(urlProvider.url, URL(string: "https://api.example.com/v1/endpoint/abc?ddsource=ios&batch_time=1576404009999"))
-    }
-}
-
 class DataUploaderTests: XCTestCase {
-    // MARK: - Upload Status
+    func testWhenUploadCompletesWithSuccess_itReturnsExpectedUploadStatus() throws {
+        // Given
+        let randomResponse: HTTPURLResponse = .mockResponseWith(statusCode: (100...599).randomElement()!)
+        let randomRequestIDOrNil: String? = Bool.random() ? .mockRandom() : nil
+        let requestIDHeaderOrNil: URLRequestBuilder.HTTPHeader? = randomRequestIDOrNil.flatMap { randomRequestID in
+                .init(field: URLRequestBuilder.HTTPHeader.ddRequestIDHeaderField, value: { randomRequestID })
+        }
 
-    func testWhenDataIsSentWith200Code_itReturnsDataUploadStatus_success() {
-        let server = ServerMock(delivery: .success(response: .mockResponseWith(statusCode: 200)))
+        let server = ServerMock(delivery: .success(response: randomResponse))
+        let httpClient = HTTPClient(session: server.getInterceptedURLSession())
+
         let uploader = DataUploader(
-            urlProvider: .mockAny(),
-            httpClient: HTTPClient(session: server.urlSession),
-            httpHeaders: .mockAny()
+            httpClient: httpClient,
+            requestBuilder: FeatureRequestBuilderMock(headers: requestIDHeaderOrNil.map { [$0] } ?? [])
         )
-        let status = uploader.upload(data: .mockAny())
 
-        XCTAssertEqual(status, .success)
+        // When
+        let uploadStatus = try uploader.upload(
+            events: .mockAny(),
+            context: .mockAny()
+        )
+
+        // Then
+        let expectedUploadStatus = DataUploadStatus(httpResponse: randomResponse, ddRequestID: randomRequestIDOrNil)
+
+        DDAssertReflectionEqual(uploadStatus, expectedUploadStatus)
         server.waitFor(requestsCompletion: 1)
     }
 
-    func testWhenDataIsSentWith300Code_itReturnsDataUploadStatus_redirection() {
-        let server = ServerMock(delivery: .success(response: .mockResponseWith(statusCode: 300)))
-        let uploader = DataUploader(
-            urlProvider: .mockAny(),
-            httpClient: HTTPClient(session: server.urlSession),
-            httpHeaders: .mockAny()
-        )
-        let status = uploader.upload(data: .mockAny())
+    func testWhenUploadCompletesWithFailure_itReturnsExpectedUploadStatus() throws {
+        // Given
+        let randomErrorDescription: String = .mockRandom()
+        let randomError = NSError(domain: .mockRandom(), code: .mockRandom(), userInfo: [NSLocalizedDescriptionKey: randomErrorDescription])
 
-        XCTAssertEqual(status, .redirection)
+        let server = ServerMock(delivery: .failure(error: randomError))
+        let httpClient = HTTPClient(session: server.getInterceptedURLSession())
+
+        let uploader = DataUploader(
+            httpClient: httpClient,
+            requestBuilder: FeatureRequestBuilderMock()
+        )
+
+        // When
+        let uploadStatus = try uploader.upload(
+            events: .mockAny(),
+            context: .mockAny()
+        )
+
+        // Then
+        let expectedUploadStatus = DataUploadStatus(networkError: randomError)
+
+        DDAssertReflectionEqual(uploadStatus, expectedUploadStatus)
         server.waitFor(requestsCompletion: 1)
     }
 
-    func testWhenDataIsSentWith400Code_itReturnsDataUploadStatus_clientError() {
-        let server = ServerMock(delivery: .success(response: .mockResponseWith(statusCode: 400)))
+    func testWhenUploadCannotBeInitiated_itThrows() throws {
+        // Given
+        let error = ErrorMock()
+
         let uploader = DataUploader(
-            urlProvider: .mockAny(),
-            httpClient: HTTPClient(session: server.urlSession),
-            httpHeaders: .mockAny()
+            httpClient: .mockAny(),
+            requestBuilder: FailingRequestBuilderMock(error: error)
         )
-        let status = uploader.upload(data: .mockAny())
 
-        XCTAssertEqual(status, .clientError)
-        server.waitFor(requestsCompletion: 1)
-    }
-
-    func testWhenDataIsSentWith500Code_itReturnsDataUploadStatus_serverError() {
-        let server = ServerMock(delivery: .success(response: .mockResponseWith(statusCode: 500)))
-        let uploader = DataUploader(
-            urlProvider: .mockAny(),
-            httpClient: HTTPClient(session: server.urlSession),
-            httpHeaders: .mockAny()
-        )
-        let status = uploader.upload(data: .mockAny())
-
-        XCTAssertEqual(status, .serverError)
-        server.waitFor(requestsCompletion: 1)
-    }
-
-    func testWhenDataIsNotSentDueToNetworkError_itReturnsDataUploadStatus_networkError() {
-        let server = ServerMock(delivery: .failure(error: ErrorMock("network error")))
-        let uploader = DataUploader(
-            urlProvider: .mockAny(),
-            httpClient: HTTPClient(session: server.urlSession),
-            httpHeaders: .mockAny()
-        )
-        let status = uploader.upload(data: .mockAny())
-
-        XCTAssertEqual(status, .networkError)
-        server.waitFor(requestsCompletion: 1)
-    }
-
-    func testWhenDataIsNotSentDueToUnknownStatusCode_itReturnsDataUploadStatus_unknown() {
-        let server = ServerMock(delivery: .success(response: .mockResponseWith(statusCode: -1)))
-        let uploader = DataUploader(
-            urlProvider: .mockAny(),
-            httpClient: HTTPClient(session: server.urlSession),
-            httpHeaders: .mockAny()
-        )
-        let status = uploader.upload(data: .mockAny())
-
-        XCTAssertEqual(status, .unknown)
-        server.waitFor(requestsCompletion: 1)
+        // When & Then
+        XCTAssertThrowsError(try uploader.upload(events: .mockAny(), context: .mockAny())) { error in
+            XCTAssertTrue(error is ErrorMock)
+        }
     }
 }

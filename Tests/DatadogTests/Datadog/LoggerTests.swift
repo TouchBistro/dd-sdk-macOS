@@ -1,7 +1,7 @@
 /*
  * Unless explicitly stated otherwise all files in this repository are licensed under the Apache License Version 2.0.
  * This product includes software developed at Datadog (https://www.datadoghq.com/).
- * Copyright 2019-2020 Datadog, Inc.
+ * Copyright 2019-Present Datadog, Inc.
  */
 
 import XCTest
@@ -9,72 +9,76 @@ import XCTest
 
 // swiftlint:disable multiline_arguments_brackets
 class LoggerTests: XCTestCase {
+    private var core: DatadogCoreProxy! // swiftlint:disable:this implicitly_unwrapped_optional
+
     override func setUp() {
         super.setUp()
-        XCTAssertNil(Datadog.instance)
-        XCTAssertNil(LoggingFeature.instance)
-        temporaryDirectory.create()
+        core = DatadogCoreProxy()
     }
 
     override func tearDown() {
-        XCTAssertNil(Datadog.instance)
-        XCTAssertNil(LoggingFeature.instance)
-        temporaryDirectory.delete()
+        core.flushAndTearDown()
+        core = nil
         super.tearDown()
     }
 
     // MARK: - Customizing Logger
 
     func testSendingLogWithDefaultLogger() throws {
-        let server = ServerMock(delivery: .success(response: .mockResponseWith(statusCode: 200)))
-        LoggingFeature.instance = .mockWorkingFeatureWith(
-            server: server,
-            directory: temporaryDirectory,
-            configuration: .mockWith(
-                applicationVersion: "1.0.0",
-                applicationBundleIdentifier: "com.datadoghq.ios-sdk",
-                serviceName: "default-service-name",
-                environment: "tests"
-            ),
-            dateProvider: RelativeDateProvider(using: .mockDecember15th2019At10AMUTC())
+        core.context = .mockWith(
+            service: "default-service-name",
+            env: "tests",
+            version: "1.0.0",
+            sdkVersion: "1.2.3",
+            device: .mockWith(architecture: "testArch")
         )
-        defer { LoggingFeature.instance = nil }
 
-        let logger = Logger.builder.build()
+        let feature: LoggingFeature = .mockWith(
+            configuration: .mockWith(
+                dateProvider: RelativeDateProvider(using: .mockDecember15th2019At10AMUTC()),
+                applicationBundleIdentifier: "com.datadoghq.ios-sdk"
+            )
+        )
+        core.register(feature: feature)
+
+        let logger = Logger.builder.build(in: core)
         logger.debug("message")
 
-        let logMatcher = try server.waitAndReturnLogMatchers(count: 1)[0]
+        let logMatcher = try core.waitAndReturnLogMatchers()[0]
         try logMatcher.assertItFullyMatches(jsonString: """
         {
           "status" : "debug",
           "message" : "message",
           "service" : "default-service-name",
           "logger.name" : "com.datadoghq.ios-sdk",
-          "logger.version": "\(sdkVersion)",
+          "logger.version": "1.2.3",
           "logger.thread_name" : "main",
           "date" : "2019-12-15T10:00:00.000Z",
           "version": "1.0.0",
-          "ddtags": "env:tests"
+          "ddtags": "env:tests,version:1.0.0",
+          "_dd": {
+            "device": {
+              "architecture": "testArch"
+            }
+          }
         }
         """)
     }
 
     func testSendingLogWithCustomizedLogger() throws {
-        let server = ServerMock(delivery: .success(response: .mockResponseWith(statusCode: 200)))
-        LoggingFeature.instance = .mockWorkingFeatureWith(
-            server: server,
-            directory: temporaryDirectory
-        )
-        defer { LoggingFeature.instance = nil }
+        core.context = .mockAny()
+
+        let feature: LoggingFeature = .mockAny()
+        core.register(feature: feature)
 
         let logger = Logger.builder
             .set(serviceName: "custom-service-name")
             .set(loggerName: "custom-logger-name")
             .sendNetworkInfo(true)
-            .build()
+            .build(in: core)
         logger.debug("message")
 
-        let logMatcher = try server.waitAndReturnLogMatchers(count: 1)[0]
+        let logMatcher = try core.waitAndReturnLogMatchers()[0]
 
         logMatcher.assertServiceName(equals: "custom-service-name")
         logMatcher.assertLoggerName(equals: "custom-logger-name")
@@ -95,36 +99,31 @@ class LoggerTests: XCTestCase {
     // MARK: - Sending Customized Logs
 
     func testSendingLogsWithDifferentDates() throws {
-        let server = ServerMock(delivery: .success(response: .mockResponseWith(statusCode: 200)))
-        LoggingFeature.instance = .mockWorkingFeatureWith(
-            server: server,
-            directory: temporaryDirectory,
-            dateProvider: RelativeDateProvider(startingFrom: .mockDecember15th2019At10AMUTC(), advancingBySeconds: 1)
+        let feature: LoggingFeature = .mockWith(
+            configuration: .mockWith(
+                dateProvider: RelativeDateProvider(startingFrom: .mockDecember15th2019At10AMUTC(), advancingBySeconds: 1)
+            )
         )
-        defer { LoggingFeature.instance = nil }
+        core.register(feature: feature)
 
-        let logger = Logger.builder.build()
+        let logger = Logger.builder.build(in: core)
         logger.info("message 1")
         logger.info("message 2")
         logger.info("message 3")
 
-        let logMatchers = try server.waitAndReturnLogMatchers(count: 3)
-        // swiftlint:disable trailing_closure
+        let logMatchers = try core.waitAndReturnLogMatchers()
         logMatchers[0].assertDate(matches: { $0 == Date.mockDecember15th2019At10AMUTC() })
         logMatchers[1].assertDate(matches: { $0 == Date.mockDecember15th2019At10AMUTC(addingTimeInterval: 1) })
         logMatchers[2].assertDate(matches: { $0 == Date.mockDecember15th2019At10AMUTC(addingTimeInterval: 2) })
-        // swiftlint:enable trailing_closure
     }
 
     func testSendingLogsWithDifferentLevels() throws {
-        let server = ServerMock(delivery: .success(response: .mockResponseWith(statusCode: 200)))
-        LoggingFeature.instance = .mockWorkingFeatureWith(
-            server: server,
-            directory: temporaryDirectory
-        )
-        defer { LoggingFeature.instance = nil }
+        core.context = .mockAny()
 
-        let logger = Logger.builder.build()
+        let feature: LoggingFeature = .mockAny()
+        core.register(feature: feature)
+
+        let logger = Logger.builder.build(in: core)
         logger.debug("message")
         logger.info("message")
         logger.notice("message")
@@ -132,7 +131,7 @@ class LoggerTests: XCTestCase {
         logger.error("message")
         logger.critical("message")
 
-        let logMatchers = try server.waitAndReturnLogMatchers(count: 6)
+        let logMatchers = try core.waitAndReturnLogMatchers()
         logMatchers[0].assertStatus(equals: "debug")
         logMatchers[1].assertStatus(equals: "info")
         logMatchers[2].assertStatus(equals: "notice")
@@ -141,74 +140,205 @@ class LoggerTests: XCTestCase {
         logMatchers[5].assertStatus(equals: "critical")
     }
 
+    func testSendingLogsAboveCertainLevel() throws {
+        core.context = .mockAny()
+
+        let feature: LoggingFeature = .mockAny()
+        core.register(feature: feature)
+
+        let logger = Logger.builder
+            .set(datadogReportingThreshold: .warn)
+            .build(in: core)
+
+        logger.debug("message")
+        logger.info("message")
+        logger.notice("message")
+        logger.warn("message")
+        logger.error("message")
+        logger.critical("message")
+
+        let logMatchers = try core.waitAndReturnLogMatchers()
+        logMatchers[0].assertStatus(equals: "warn")
+        logMatchers[1].assertStatus(equals: "error")
+        logMatchers[2].assertStatus(equals: "critical")
+    }
+
+    // MARK: - Logging an error
+
+    func testLoggingError() throws {
+        core.context = .mockAny()
+
+        let feature: LoggingFeature = .mockAny()
+        core.register(feature: feature)
+
+        struct TestError: Error {
+            var description = "Test description"
+        }
+        let error = TestError()
+
+        let logger = Logger.builder.build(in: core)
+        logger.debug("message", error: error)
+        logger.info("message", error: error)
+        logger.notice("message", error: error)
+        logger.warn("message", error: error)
+        logger.error("message", error: error)
+        logger.critical("message", error: error)
+
+        let logMatchers = try core.waitAndReturnLogMatchers()
+        for matcher in logMatchers {
+            matcher.assertValue(forKeyPath: "error.stack", equals: "TestError(description: \"Test description\")")
+            matcher.assertValue(forKeyPath: "error.message", equals: "TestError(description: \"Test description\")")
+            matcher.assertValue(forKeyPath: "error.kind", equals: "TestError")
+        }
+    }
+
+    func testLoggingErrorStrings() throws {
+        core.context = .mockAny()
+
+        let feature: LoggingFeature = .mockAny()
+        core.register(feature: feature)
+
+        let logger = Logger.builder.build(in: core)
+        let errorKind = String.mockRandom()
+        let errorMessage = String.mockRandom()
+        let stackTrace = String.mockRandom()
+        logger.log(level: .info,
+                   message: .mockAny(),
+                   errorKind: errorKind,
+                   errorMessage: errorMessage,
+                   stackTrace: stackTrace,
+                   attributes: nil
+        )
+
+        let logMatchers = try core.waitAndReturnLogMatchers()
+        let logMatcher = logMatchers.first
+        XCTAssertNotNil(logMatcher)
+        if let logMatcher = logMatcher {
+            logMatcher.assertValue(forKeyPath: "error.kind", equals: errorKind)
+            logMatcher.assertValue(forKeyPath: "error.message", equals: errorMessage)
+            logMatcher.assertValue(forKeyPath: "error.stack", equals: stackTrace)
+        }
+    }
+
+    // MARK: - Sampling
+
+    func testSamplingEnabled() {
+        core.context = .mockAny()
+        let feature: LoggingFeature = .mockWith(configuration: .mockWith(remoteLoggingSampler: Sampler(samplingRate: 100)))
+        core.register(feature: feature)
+
+        let logger = Logger.builder
+            .build(in: core)
+
+        logger.debug(.mockAny())
+        logger.info(.mockAny())
+        logger.notice(.mockAny())
+        logger.warn(.mockAny())
+        logger.error(.mockAny())
+        logger.critical(.mockAny())
+
+        XCTAssertEqual(try core.waitAndReturnLogMatchers().count, 6)
+    }
+
+    func testSamplingDisabled() {
+        core.context = .mockAny()
+        let feature: LoggingFeature = .mockWith(configuration: .mockWith(remoteLoggingSampler: Sampler(samplingRate: 0)))
+        core.register(feature: feature)
+
+        let logger = Logger.builder
+            .build(in: core)
+
+        logger.debug(.mockAny())
+        logger.info(.mockAny())
+        logger.notice(.mockAny())
+        logger.warn(.mockAny())
+        logger.error(.mockAny())
+        logger.critical(.mockAny())
+
+        XCTAssertEqual(try core.waitAndReturnLogMatchers().count, 0)
+    }
+
     // MARK: - Sending user info
 
     func testSendingUserInfo() throws {
-        let server = ServerMock(delivery: .success(response: .mockResponseWith(statusCode: 200)))
-        Datadog.instance = Datadog(
-            userInfoProvider: UserInfoProvider()
+        core.context = .mockWith(
+            userInfo: .empty
         )
-        defer { Datadog.instance = nil }
-        LoggingFeature.instance = .mockWorkingFeatureWith(
-            server: server,
-            directory: temporaryDirectory,
-            userInfoProvider: Datadog.instance!.userInfoProvider
-        )
-        defer { LoggingFeature.instance = nil }
 
-        let logger = Logger.builder.build()
+        let feature: LoggingFeature = .mockAny()
+        core.register(feature: feature)
+
+        let logger = Logger.builder.build(in: core)
+
         logger.debug("message with no user info")
 
-        Datadog.setUserInfo(id: "abc-123", name: "Foo")
+        core.context.userInfo = UserInfo(id: "abc-123", name: "Foo", email: nil, extraInfo: [:])
         logger.debug("message with user `id` and `name`")
 
-        Datadog.setUserInfo(id: "abc-123", name: "Foo", email: "foo@example.com")
-        logger.debug("message with user `id`, `name` and `email`")
+        core.context.userInfo = UserInfo(
+            id: "abc-123",
+            name: "Foo",
+            email: "foo@example.com",
+            extraInfo: [
+                "str": "value",
+                "int": 11_235,
+                "bool": true
+            ]
+        )
+        logger.debug("message with user `id`, `name`, `email` and `extraInfo`")
 
-        Datadog.setUserInfo(id: nil, name: nil, email: nil)
+        core.context.userInfo = .empty
         logger.debug("message with no user info")
 
-        let logMatchers = try server.waitAndReturnLogMatchers(count: 4)
+        let logMatchers = try core.waitAndReturnLogMatchers()
         logMatchers[0].assertUserInfo(equals: nil)
+
         logMatchers[1].assertUserInfo(equals: (id: "abc-123", name: "Foo", email: nil))
-        logMatchers[2].assertUserInfo(equals: (id: "abc-123", name: "Foo", email: "foo@example.com"))
+
+        logMatchers[2].assertUserInfo(
+            equals: (
+                id: "abc-123",
+                name: "Foo",
+                email: "foo@example.com"
+            )
+        )
+        logMatchers[2].assertValue(forKey: "usr.str", equals: "value")
+        logMatchers[2].assertValue(forKey: "usr.int", equals: 11_235)
+        logMatchers[2].assertValue(forKey: "usr.bool", equals: true)
+
         logMatchers[3].assertUserInfo(equals: nil)
     }
 
     // MARK: - Sending carrier info
 
     func testSendingCarrierInfoWhenEnteringAndLeavingCellularServiceRange() throws {
-        let server = ServerMock(delivery: .success(response: .mockResponseWith(statusCode: 200)))
-        let carrierInfoProvider = CarrierInfoProviderMock(carrierInfo: nil)
-        LoggingFeature.instance = .mockWorkingFeatureWith(
-            server: server,
-            directory: temporaryDirectory,
-            carrierInfoProvider: carrierInfoProvider
+        core.context = .mockWith(
+            carrierInfo: nil
         )
-        defer { LoggingFeature.instance = nil }
+
+        let feature: LoggingFeature = .mockAny()
+        core.register(feature: feature)
 
         let logger = Logger.builder
             .sendNetworkInfo(true)
-            .build()
+            .build(in: core)
 
         // simulate entering cellular service range
-        carrierInfoProvider.set(
-            current: .mockWith(
-                carrierName: "Carrier",
-                carrierISOCountryCode: "US",
-                carrierAllowsVOIP: true,
-                radioAccessTechnology: .LTE
-            )
+        core.context.carrierInfo = .mockWith(
+            carrierName: "Carrier",
+            carrierISOCountryCode: "US",
+            carrierAllowsVOIP: true,
+            radioAccessTechnology: .LTE
         )
 
         logger.debug("message")
 
         // simulate leaving cellular service range
-        carrierInfoProvider.set(current: nil)
+        core.context.carrierInfo = nil
 
         logger.debug("message")
 
-        let logMatchers = try server.waitAndReturnLogMatchers(count: 2)
+        let logMatchers = try core.waitAndReturnLogMatchers()
         logMatchers[0].assertValue(forKeyPath: "network.client.sim_carrier.name", equals: "Carrier")
         logMatchers[0].assertValue(forKeyPath: "network.client.sim_carrier.iso_country", equals: "US")
         logMatchers[0].assertValue(forKeyPath: "network.client.sim_carrier.technology", equals: "LTE")
@@ -219,51 +349,42 @@ class LoggerTests: XCTestCase {
     // MARK: - Sending network info
 
     func testSendingNetworkConnectionInfoWhenReachabilityChanges() throws {
-        let server = ServerMock(delivery: .success(response: .mockResponseWith(statusCode: 200)))
-        let networkConnectionInfoProvider = NetworkConnectionInfoProviderMock.mockAny()
-        LoggingFeature.instance = .mockWorkingFeatureWith(
-            server: server,
-            directory: temporaryDirectory,
-            networkConnectionInfoProvider: networkConnectionInfoProvider
+        core.context = .mockWith(
+            networkConnectionInfo: nil
         )
-        defer { LoggingFeature.instance = nil }
+
+        let feature: LoggingFeature = .mockAny()
+        core.register(feature: feature)
 
         let logger = Logger.builder
             .sendNetworkInfo(true)
-            .build()
+            .build(in: core)
 
         // simulate reachable network
-        networkConnectionInfoProvider.set(
-            current: .mockWith(
-                reachability: .yes,
-                availableInterfaces: [.wifi, .cellular],
-                supportsIPv4: true,
-                supportsIPv6: true,
-                isExpensive: false,
-                isConstrained: false
-            )
+        core.context.networkConnectionInfo = .mockWith(
+            reachability: .yes,
+            availableInterfaces: [.wifi, .cellular],
+            supportsIPv4: true,
+            supportsIPv6: true,
+            isExpensive: false,
+            isConstrained: false
         )
 
         logger.debug("message")
 
         // simulate unreachable network
-        networkConnectionInfoProvider.set(
-            current: .mockWith(
-                reachability: .no,
-                availableInterfaces: [],
-                supportsIPv4: false,
-                supportsIPv6: false,
-                isExpensive: false,
-                isConstrained: false
-            )
+        core.context.networkConnectionInfo = .mockWith(
+            reachability: .no,
+            availableInterfaces: [],
+            supportsIPv4: false,
+            supportsIPv6: false,
+            isExpensive: false,
+            isConstrained: false
         )
 
         logger.debug("message")
 
-        // put the network back online so last log can be send
-        networkConnectionInfoProvider.set(current: .mockWith(reachability: .yes))
-
-        let logMatchers = try server.waitAndReturnLogMatchers(count: 2)
+        let logMatchers = try core.waitAndReturnLogMatchers()
         logMatchers[0].assertValue(forKeyPath: "network.client.reachability", equals: "yes")
         logMatchers[0].assertValue(forKeyPath: "network.client.available_interfaces", equals: ["wifi", "cellular"])
         logMatchers[0].assertValue(forKeyPath: "network.client.is_constrained", equals: false)
@@ -282,14 +403,12 @@ class LoggerTests: XCTestCase {
     // MARK: - Sending attributes
 
     func testSendingLoggerAttributesOfDifferentEncodableValues() throws {
-        let server = ServerMock(delivery: .success(response: .mockResponseWith(statusCode: 200)))
-        LoggingFeature.instance = .mockWorkingFeatureWith(
-            server: server,
-            directory: temporaryDirectory
-        )
-        defer { LoggingFeature.instance = nil }
+        core.context = .mockAny()
 
-        let logger = Logger.builder.build()
+        let feature: LoggingFeature = .mockAny()
+        core.register(feature: feature)
+
+        let logger = Logger.builder.build(in: core)
 
         // string literal
         logger.addAttribute(forKey: "string", value: "hello")
@@ -332,7 +451,7 @@ class LoggerTests: XCTestCase {
 
         logger.info("message")
 
-        let logMatcher = try server.waitAndReturnLogMatchers(count: 1)[0]
+        let logMatcher = try core.waitAndReturnLogMatchers()[0]
         logMatcher.assertValue(forKey: "string", equals: "hello")
         logMatcher.assertValue(forKey: "bool", equals: true)
         logMatcher.assertValue(forKey: "int", equals: 10)
@@ -350,14 +469,12 @@ class LoggerTests: XCTestCase {
     }
 
     func testSendingMessageAttributes() throws {
-        let server = ServerMock(delivery: .success(response: .mockResponseWith(statusCode: 200)))
-        LoggingFeature.instance = .mockWorkingFeatureWith(
-            server: server,
-            directory: temporaryDirectory
-        )
-        defer { LoggingFeature.instance = nil }
+        core.context = .mockAny()
 
-        let logger = Logger.builder.build()
+        let feature: LoggingFeature = .mockAny()
+        core.register(feature: feature)
+
+        let logger = Logger.builder.build(in: core)
 
         // add logger attribute
         logger.addAttribute(forKey: "attribute", value: "logger's value")
@@ -374,7 +491,7 @@ class LoggerTests: XCTestCase {
         // send message
         logger.info("info message 3")
 
-        let logMatchers = try server.waitAndReturnLogMatchers(count: 3)
+        let logMatchers = try core.waitAndReturnLogMatchers()
         logMatchers[0].assertValue(forKey: "attribute", equals: "logger's value")
         logMatchers[1].assertValue(forKey: "attribute", equals: "message's value")
         logMatchers[2].assertNoValue(forKey: "attribute")
@@ -383,15 +500,15 @@ class LoggerTests: XCTestCase {
     // MARK: - Sending tags
 
     func testSendingTags() throws {
-        let server = ServerMock(delivery: .success(response: .mockResponseWith(statusCode: 200)))
-        LoggingFeature.instance = .mockWorkingFeatureWith(
-            server: server,
-            directory: temporaryDirectory,
-            configuration: .mockWith(environment: "tests")
+        core.context = .mockWith(
+            env: "tests",
+            version: "1.2.3"
         )
-        defer { LoggingFeature.instance = nil }
 
-        let logger = Logger.builder.build()
+        let feature: LoggingFeature = .mockAny()
+        core.register(feature: feature)
+
+        let logger = Logger.builder.build(in: core)
 
         // add tag
         logger.add(tag: "tag1")
@@ -414,61 +531,347 @@ class LoggerTests: XCTestCase {
         // send message
         logger.info("info message 3")
 
-        let logMatchers = try server.waitAndReturnLogMatchers(count: 3)
-        logMatchers[0].assertTags(equal: ["tag1", "env:tests"])
-        logMatchers[1].assertTags(equal: ["tag1", "tag2:abcd", "env:tests"])
-        logMatchers[2].assertTags(equal: ["env:tests"])
+        let logMatchers = try core.waitAndReturnLogMatchers()
+        logMatchers[0].assertTags(equal: ["tag1", "env:tests", "version:1.2.3"])
+        logMatchers[1].assertTags(equal: ["tag1", "tag2:abcd", "env:tests", "version:1.2.3"])
+        logMatchers[2].assertTags(equal: ["env:tests", "version:1.2.3"])
     }
 
-    // MARK: - Sending logs with different network and battery conditions
+    // MARK: - Integration With RUM Feature
 
-    func testGivenBadBatteryConditions_itDoesNotTryToSendLogs() throws {
-        let server = ServerMock(delivery: .success(response: .mockResponseWith(statusCode: 200)))
-        LoggingFeature.instance = .mockWorkingFeatureWith(
-            server: server,
-            directory: temporaryDirectory,
-            mobileDevice: .mockWith(
-                currentBatteryStatus: { () -> MobileDevice.BatteryStatus in
-                    .mockWith(state: .charging, level: 0.05, isLowPowerModeEnabled: true)
-                }
+    func testGivenBundlingWithRUMEnabledAndRUMMonitorRegistered_whenSendingLogBeforeAnyUserActivity_itContainsSessionId() throws {
+        core.context = .mockAny()
+
+        let logging: LoggingFeature = .mockAny()
+        core.register(feature: logging)
+
+        let rum: RUMFeature = .mockAny()
+        core.register(feature: rum)
+
+        // given
+        let logger = Logger.builder.build(in: core)
+        Global.rum = RUMMonitor.initialize(in: core)
+        defer { Global.rum = DDNoopRUMMonitor() }
+
+        // when
+        logger.info("message 0")
+
+        // then
+        let logMatchers = try core.waitAndReturnLogMatchers()
+        XCTAssertEqual(logMatchers.count, 1)
+
+        logMatchers.forEach {
+            $0.assertValue(
+                forKeyPath: RUMContextAttributes.IDs.sessionID,
+                isTypeOf: String.self
             )
-        )
-        defer { LoggingFeature.instance = nil }
-
-        let logger = Logger.builder.build()
-        logger.debug("message")
-
-        server.waitAndAssertNoRequestsSent()
+        }
     }
 
-    func testGivenNoNetworkConnection_itDoesNotTryToSendLogs() throws {
-        let server = ServerMock(delivery: .success(response: .mockResponseWith(statusCode: 200)))
-        LoggingFeature.instance = .mockWorkingFeatureWith(
-            server: server,
-            directory: temporaryDirectory,
-            networkConnectionInfoProvider: NetworkConnectionInfoProviderMock.mockWith(
-                networkConnectionInfo: .mockWith(reachability: .no)
-            )
-        )
-        defer { LoggingFeature.instance = nil }
+    func testGivenBundlingWithRUMEnabledAndRUMMonitorRegistered_whenSendingLog_itContainsCurrentRUMContext() throws {
+        core.context = .mockAny()
 
-        let logger = Logger.builder.build()
+        let logging: LoggingFeature = .mockAny()
+        core.register(feature: logging)
+
+        let rum: RUMFeature = .mockAny()
+        core.register(feature: rum)
+
+        // given
+        let logger = Logger.builder.build(in: core)
+        Global.rum = RUMMonitor.initialize(in: core)
+        defer { Global.rum = DDNoopRUMMonitor() }
+
+        // when
+        Global.rum.startView(viewController: mockView)
+        logger.info("message 0")
+        Global.rum.startUserAction(type: .tap, name: .mockAny())
+        logger.info("message 1")
+
+        // then
+        let logMatchers = try core.waitAndReturnLogMatchers()
+        XCTAssertEqual(logMatchers.count, 2)
+
+        logMatchers.forEach {
+            $0.assertValue(
+                forKeyPath: RUMContextAttributes.IDs.applicationID,
+                equals: rum.configuration.applicationID
+            )
+
+            $0.assertValue(
+                forKeyPath: RUMContextAttributes.IDs.sessionID,
+                isTypeOf: String.self
+            )
+
+            $0.assertValue(
+                forKeyPath: RUMContextAttributes.IDs.viewID,
+                isTypeOf: String.self
+            )
+        }
+
+        logMatchers.first?.assertNoValue(forKeyPath: RUMContextAttributes.IDs.userActionID)
+
+        logMatchers.last?.assertValue(
+            forKeyPath: RUMContextAttributes.IDs.userActionID,
+            isTypeOf: String.self
+        )
+    }
+
+    func testWhenSendingErrorOrCriticalLogs_itCreatesRUMErrorForCurrentView() throws {
+        let logging: LoggingFeature = .mockAny()
+        core.register(feature: logging)
+
+        let rum: RUMFeature = .mockWith(messageReceiver: ErrorMessageReceiver())
+        core.register(feature: rum)
+
+        // given
+        let logger = Logger.builder.build(in: core)
+        Global.rum = RUMMonitor(
+            core: core,
+            dependencies: RUMScopeDependencies(
+                core: core,
+                rumFeature: rum
+            ).replacing(viewUpdatesThrottlerFactory: { NoOpRUMViewUpdatesThrottler() }),
+            dateProvider: SystemDateProvider()
+        )
+        Global.rum.startView(viewController: mockView)
+        defer { Global.rum = DDNoopRUMMonitor() }
+
+        // when
+        logger.debug("debug message")
+        logger.info("info message")
+        logger.notice("notice message")
+        logger.warn("warn message")
+        logger.error("error message")
+        logger.critical("critical message")
+
+        // then
+        let rumEventMatchers = try core.waitAndReturnRUMEventMatchers()
+        let rumErrorMatcher1 = rumEventMatchers.first { $0.model(isTypeOf: RUMErrorEvent.self) }
+        let rumErrorMatcher2 = rumEventMatchers.last { $0.model(isTypeOf: RUMErrorEvent.self) }
+        try XCTUnwrap(rumErrorMatcher1).model(ofType: RUMErrorEvent.self) { rumModel in
+            XCTAssertEqual(rumModel.error.message, "error message")
+            XCTAssertEqual(rumModel.error.source, .logger)
+            XCTAssertNil(rumModel.error.stack)
+        }
+        try XCTUnwrap(rumErrorMatcher2).model(ofType: RUMErrorEvent.self) { rumModel in
+            XCTAssertEqual(rumModel.error.message, "critical message")
+            XCTAssertEqual(rumModel.error.source, .logger)
+            XCTAssertNil(rumModel.error.stack)
+        }
+    }
+
+    func testWhenSendingErrorOrCriticalLogsWithAttributes_itCreatesRUMErrorForCurrentViewWithAttributes() throws {
+        let logging: LoggingFeature = .mockAny()
+        core.register(feature: logging)
+
+        let rum: RUMFeature = .mockWith(messageReceiver: ErrorMessageReceiver())
+        core.register(feature: rum)
+
+        // given
+        let logger = Logger.builder.build(in: core)
+        Global.rum = RUMMonitor(
+            core: core,
+            dependencies: RUMScopeDependencies(
+                core: core,
+                rumFeature: rum
+            ).replacing(viewUpdatesThrottlerFactory: { NoOpRUMViewUpdatesThrottler() }),
+            dateProvider: SystemDateProvider()
+        )
+        Global.rum.startView(viewController: mockView)
+        defer { Global.rum = DDNoopRUMMonitor() }
+
+        // when
+        let attributeValueA: String = .mockRandom()
+        logger.error("error message", attributes: [
+            "any_attribute_a": attributeValueA
+        ])
+        let attributeValueB: String = .mockRandom()
+        logger.critical("critical message", attributes: [
+            "any_attribute_b": attributeValueB
+        ])
+
+        // then
+        let rumEventMatchers = try core.waitAndReturnRUMEventMatchers()
+        let rumErrorMatcher1 = rumEventMatchers.first { $0.model(isTypeOf: RUMErrorEvent.self) }
+        let rumErrorMatcher2 = rumEventMatchers.last { $0.model(isTypeOf: RUMErrorEvent.self) }
+        try XCTUnwrap(rumErrorMatcher1).model(ofType: RUMErrorEvent.self) { rumModel in
+            XCTAssertEqual(rumModel.error.message, "error message")
+            XCTAssertEqual(rumModel.error.source, .logger)
+            XCTAssertNil(rumModel.error.stack)
+            let attributeValue = (rumModel.context?.contextInfo["any_attribute_a"] as? DDAnyCodable)?.value as? String
+            XCTAssertEqual(attributeValue, attributeValueA)
+        }
+        try XCTUnwrap(rumErrorMatcher2).model(ofType: RUMErrorEvent.self) { rumModel in
+            XCTAssertEqual(rumModel.error.message, "critical message")
+            XCTAssertEqual(rumModel.error.source, .logger)
+            XCTAssertNil(rumModel.error.stack)
+            let attributeValue = (rumModel.context?.contextInfo["any_attribute_b"] as? DDAnyCodable)?.value as? String
+            XCTAssertEqual(attributeValue, attributeValueB)
+        }
+    }
+
+    func testWhenSendingErrorOrCriticalLogs_itCreatesRUMErrorWithProperSourceType() throws {
+        let logging: LoggingFeature = .mockAny()
+        core.register(feature: logging)
+
+        let rum: RUMFeature = .mockWith(messageReceiver: ErrorMessageReceiver())
+        core.register(feature: rum)
+
+        // given
+        let logger = Logger.builder.build(in: core)
+        Global.rum = RUMMonitor(
+            core: core,
+            dependencies: RUMScopeDependencies(
+                core: core,
+                rumFeature: rum
+            ).replacing(viewUpdatesThrottlerFactory: { NoOpRUMViewUpdatesThrottler() }),
+            dateProvider: SystemDateProvider()
+        )
+        Global.rum.startView(viewController: mockView)
+        defer { Global.rum = DDNoopRUMMonitor() }
+
+        // when
+        logger.error("error message", attributes: [
+            "_dd.error.source_type": "flutter"
+        ])
+        logger.critical("critical message", attributes: [
+            "_dd.error.source_type": "react-native"
+        ])
+
+        // then
+        let rumEventMatchers = try core.waitAndReturnRUMEventMatchers()
+        let rumErrorMatcher1 = rumEventMatchers.first { $0.model(isTypeOf: RUMErrorEvent.self) }
+        let rumErrorMatcher2 = rumEventMatchers.last { $0.model(isTypeOf: RUMErrorEvent.self) }
+        try XCTUnwrap(rumErrorMatcher1).model(ofType: RUMErrorEvent.self) { rumModel in
+            XCTAssertEqual(rumModel.error.message, "error message")
+            XCTAssertEqual(rumModel.error.source, .logger)
+            XCTAssertNil(rumModel.error.stack)
+            XCTAssertEqual(rumModel.error.sourceType, .flutter)
+        }
+        try XCTUnwrap(rumErrorMatcher2).model(ofType: RUMErrorEvent.self) { rumModel in
+            XCTAssertEqual(rumModel.error.message, "critical message")
+            XCTAssertEqual(rumModel.error.source, .logger)
+            XCTAssertNil(rumModel.error.stack)
+            XCTAssertEqual(rumModel.error.sourceType, .reactNative)
+        }
+    }
+
+    func testWhenSendingErrorOrCriticalLogs_itCreatesRUMErrorWithProperIsCrash() throws {
+        let logging: LoggingFeature = .mockAny()
+        core.register(feature: logging)
+
+        let rum: RUMFeature = .mockWith(messageReceiver: ErrorMessageReceiver())
+        core.register(feature: rum)
+
+        // given
+        let logger = Logger.builder.build(in: core)
+        Global.rum = RUMMonitor(
+            core: core,
+            dependencies: RUMScopeDependencies(
+                core: core,
+                rumFeature: rum
+            ).replacing(viewUpdatesThrottlerFactory: { NoOpRUMViewUpdatesThrottler() }),
+            dateProvider: SystemDateProvider()
+        )
+        Global.rum.startView(viewController: mockView)
+        defer { Global.rum = DDNoopRUMMonitor() }
+
+        // when
+        logger.error("error message", attributes: [
+            "_dd.error.is_crash": false
+        ])
+        logger.critical("critical message", attributes: [
+            "_dd.error.is_crash": true
+        ])
+
+        // then
+        let errorEvents = core.waitAndReturnEvents(of: RUMFeature.self, ofType: RUMErrorEvent.self)
+        let error1 = try XCTUnwrap(errorEvents.first)
+        XCTAssertEqual(error1.error.message, "error message")
+        XCTAssertEqual(error1.error.source, .logger)
+        XCTAssertNil(error1.error.stack)
+        // swiftlint:disable:next xct_specific_matcher
+        XCTAssertEqual(error1.error.isCrash, false)
+
+        let error2 = try XCTUnwrap(errorEvents.last)
+        XCTAssertEqual(error2.error.message, "critical message")
+        XCTAssertEqual(error2.error.source, .logger)
+        XCTAssertNil(error2.error.stack)
+        // swiftlint:disable:next xct_specific_matcher
+        XCTAssertEqual(error2.error.isCrash, true)
+    }
+
+    // MARK: - Integration With Active Span
+
+    func testGivenBundlingWithTraceEnabledAndTracerRegistered_whenSendingLog_itContainsActiveSpanAttributes() throws {
+        core.context = .mockAny()
+
+        let logging: LoggingFeature = .mockAny()
+        core.register(feature: logging)
+
+        let tracing: TracingFeature = .mockAny()
+        core.register(feature: tracing)
+
+        // given
+        let logger = Logger.builder.build(in: core)
+        Global.sharedTracer = Tracer.initialize(configuration: .init(), in: core)
+        defer { Global.sharedTracer = DDNoopGlobals.tracer }
+
+        // when
+        let span = Global.sharedTracer.startSpan(operationName: "span").setActive()
+        logger.info("info message 1")
+        span.finish()
+        logger.info("info message 2")
+
+        // then
+        let logMatchers = try core.waitAndReturnLogMatchers()
+        logMatchers[0].assertValue(
+            forKeyPath: "dd.trace_id",
+            equals: span.context.dd.traceID.toString(.decimal)
+        )
+        logMatchers[0].assertValue(
+            forKeyPath: "dd.span_id",
+            equals: span.context.dd.spanID.toString(.decimal)
+        )
+        logMatchers[1].assertNoValue(forKey: "dd.trace_id")
+        logMatchers[1].assertNoValue(forKey: "dd.span_id")
+    }
+
+    // MARK: - Log Dates Correction
+
+    func testGivenTimeDifferenceBetweenDeviceAndServer_whenCollectingLogs_thenLogDateUsesServerTime() throws {
+        // Given
+        let deviceTime: Date = .mockDecember15th2019At10AMUTC()
+        let serverTimeOffset = TimeInterval.random(in: -5..<5).rounded() // few seconds difference
+
+        core.context = .mockWith(
+            serverTimeOffset: serverTimeOffset
+        )
+
+        // When
+        let feature: LoggingFeature = .mockWith(
+            configuration: .mockWith(dateProvider: RelativeDateProvider(using: deviceTime))
+        )
+        core.register(feature: feature)
+
+        let logger = Logger.builder.build(in: core)
         logger.debug("message")
 
-        server.waitAndAssertNoRequestsSent()
+        // Then
+        let logMatchers = try core.waitAndReturnLogMatchers()
+        logMatchers[0].assertDate { logDate in
+            logDate == deviceTime.addingTimeInterval(serverTimeOffset)
+        }
     }
 
     // MARK: - Thread safety
 
     func testRandomlyCallingDifferentAPIsConcurrentlyDoesNotCrash() {
-        let server = ServerMock(delivery: .success(response: .mockResponseWith(statusCode: 200)))
-        LoggingFeature.instance = .mockNoOp(temporaryDirectory: temporaryDirectory)
-        defer { LoggingFeature.instance = nil }
+        let feature: LoggingFeature = .mockAny()
+        core.register(feature: feature)
 
-        let logger = Logger.builder
-            .sendLogsToDatadog(false)
-            .printLogsToConsole(false)
-            .build()
+        let logger = Logger.builder.build(in: core)
 
         DispatchQueue.concurrentPerform(iterations: 900) { iteration in
             let modulo = iteration % 3
@@ -487,55 +890,53 @@ class LoggerTests: XCTestCase {
                 break
             }
         }
-
-        server.waitAndAssertNoRequestsSent()
     }
 
     // MARK: - Usage
 
     func testGivenDatadogNotInitialized_whenInitializingLogger_itPrintsError() {
-        let printFunction = PrintFunctionMock()
-        consolePrint = printFunction.print
-        defer { consolePrint = { print($0) } }
+        let dd = DD.mockWith(logger: CoreLoggerMock())
+        defer { dd.reset() }
 
         // given
-        XCTAssertNil(Datadog.instance)
+        let core = NOPDatadogCore()
 
         // when
-        let logger = Logger.builder.build()
+        let logger = Logger.builder.build(in: core)
 
         // then
         XCTAssertEqual(
-            printFunction.printedMessage,
+            dd.logger.criticalLog?.message,
+            "Failed to build `Logger`."
+        )
+        XCTAssertEqual(
+            dd.logger.criticalLog?.error?.message,
             "🔥 Datadog SDK usage error: `Datadog.initialize()` must be called prior to `Logger.builder.build()`."
         )
-        XCTAssertTrue(logger.logOutput is NoOpLogOutput)
+        XCTAssertTrue(logger.v2Logger is NOPLogger)
     }
 
-    func testGivenLoggingFeatureDisabled_whenInitializingLogger_itPrintsError() throws {
-        let printFunction = PrintFunctionMock()
-        consolePrint = printFunction.print
-        defer { consolePrint = { print($0) } }
+    func testGivenLoggingFeatureDisabled_whenInitializingLogger_itPrintsError() {
+        let dd = DD.mockWith(logger: CoreLoggerMock())
+        defer { dd.reset() }
 
         // given
-        Datadog.initialize(
-            appContext: .mockAny(),
-            configuration: Datadog.Configuration.builderUsing(clientToken: "abc.def", environment: "tests")
-                .enableLogging(false)
-                .build()
-        )
+        core.context = .mockAny()
+        XCTAssertNil(core.feature(LoggingFeature.self))
 
         // when
-        let logger = Logger.builder.build()
+        let logger = Logger.builder.build(in: core)
 
         // then
         XCTAssertEqual(
-            printFunction.printedMessage,
+            dd.logger.criticalLog?.message,
+            "Failed to build `Logger`."
+        )
+        XCTAssertEqual(
+            dd.logger.criticalLog?.error?.message,
             "🔥 Datadog SDK usage error: `Logger.builder.build()` produces a non-functional logger, as the logging feature is disabled."
         )
-        XCTAssertTrue(logger.logOutput is NoOpLogOutput)
-
-        try Datadog.deinitializeOrThrow()
+        XCTAssertTrue(logger.v2Logger is NOPLogger)
     }
 
     func testDDLoggerIsLoggerTypealias() {

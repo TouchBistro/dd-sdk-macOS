@@ -1,35 +1,74 @@
-// swift-tools-version:5.1
+// swift-tools-version: 5.5
 
 import PackageDescription
 
 let package = Package(
-    name: "Datadog",
+    name: "Datadog-macOS",
     platforms: [
-        .iOS(.v11)
+        .iOS(.v11),
+        .tvOS(.v11),
+        .macOS(.v10_15),
     ],
     products: [
         .library(
-            name: "Datadog",
-            type: .dynamic,
-            targets: ["Datadog"]),
+            name: "Datadog-macOS",
+            targets: ["Datadog-macOS"]
+        ),
         .library(
-            name: "DatadogObjc",
+            name: "DatadogObjc-macOS",
+            targets: ["DatadogObjc-macOS"]
+        ),
+        .library(
+            name: "DatadogDynamic-macOS",
             type: .dynamic,
-            targets: ["DatadogObjc"]),
+            targets: ["Datadog-macOS"]
+        ),
+        .library(
+            name: "DatadogDynamicObjc-macOS",
+            type: .dynamic,
+            targets: ["DatadogObjc-macOS"]
+        ),
+        .library( // TODO: RUMM-2387 Consider removing explicit linkage variants
+            name: "DatadogStatic-macOS",
+            type: .static,
+            targets: ["Datadog-macOS"]
+        ),
+        .library( // TODO: RUMM-2387 Consider removing explicit linkage variants
+            name: "DatadogStaticObjc-macOS",
+            type: .static,
+            targets: ["DatadogObjc-macOS"]
+        ),
+        .library(
+            name: "DatadogCrashReporting-macOS",
+            targets: ["DatadogCrashReporting-macOS"]
+        ),
     ],
-    dependencies: [],
+    dependencies: [
+        .package(name: "PLCrashReporter", url: "https://github.com/microsoft/plcrashreporter.git", from: "1.11.0"),
+    ],
     targets: [
         .target(
-            name: "Datadog",
-            dependencies: ["_Datadog_Private"]),
-        .target(
-            name: "DatadogObjc",
-            dependencies: ["Datadog"]),
-        .target(
-            name: "_Datadog_Private"
+            name: "Datadog-macOS",
+            dependencies: [
+                "_Datadog_Private-macOS",
+            ],
+            swiftSettings: [.define("SPM_BUILD")]
         ),
-        .testTarget(
-            name: "DatadogTests",
-            dependencies: ["Datadog", "DatadogObjc"]),
+        .target(
+            name: "DatadogObjc-macOS",
+            dependencies: [
+                "Datadog-macOS",
+            ]
+        ),
+        .target(
+            name: "_Datadog_Private-macOS"
+        ),
+        .target(
+            name: "DatadogCrashReporting-macOS",
+            dependencies: [
+                "Datadog-macOS",
+                .product(name: "CrashReporter", package: "PLCrashReporter"),
+            ]
+        )
     ]
 )

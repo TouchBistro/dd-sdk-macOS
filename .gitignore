@@ -1,15 +1,20 @@
 .DS_Store
 /build
-/.build
-/.swiftpm
+.build
+.swiftpm
+Package.resolved
+Carthage/Build
+Carthage/Checkouts
+
 xcuserdata/
+instrumented-tests/DatadogSDKTesting.*
+instrumented-tests/LICENSE
 
 *.local.xcconfig
 
-# fastlane
-fastlane/report.xml
-fastlane/Preview.html
-fastlane/screenshots/**/*.png
-fastlane/test_output
-fastlaneOutput
-fastlaneDerivedDataOutput
+# Ignore files for Python tools:
+.idea
+venv
+*.pyc
+__pycache__
+*.swp

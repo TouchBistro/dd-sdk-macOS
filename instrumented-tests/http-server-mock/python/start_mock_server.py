@@ -1,18 +1,20 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 
 # -----------------------------------------------------------
 # Unless explicitly stated otherwise all files in this repository are licensed under the Apache License Version 2.0.
 # This product includes software developed at Datadog (https://www.datadoghq.com/).
-# Copyright 2019-2020 Datadog, Inc.
+# Copyright 2019-Present Datadog, Inc.
 # -----------------------------------------------------------
 
-from BaseHTTPServer import HTTPServer, BaseHTTPRequestHandler
+from http.server import HTTPServer, BaseHTTPRequestHandler
 from server_address import get_localhost, get_best_server_address
 import re
 import json
 import os
 import sys
 import time
+import base64
+import zlib
 
 # If `--prefer-localhost` argument is set, the server will listen on http://127.0.0.1:8000.
 # By default it tries to discover private IP address on local network and uses localhost as fallback.
@@ -26,14 +28,7 @@ class HTTPMockServer(BaseHTTPRequestHandler):
     - Generic endpoint for recording any POST request.
 
     GET /inspect
-    - Endpoint listing history of recorded generic requests. It provides <request-id> information
-    for each request to access its details, e.g. HTTP body with `GET /inspect/<request-id>/body`.
-
-    GET /inspect/<request-id>/body
-    - Endpoint returning HTTP body of specific generic request.
-
-    GET /inspect/<request-id>/headers
-    - Endpoint returning HTTP headers of specific generic request.
+    - Endpoint listing the history of recorded generic requests.
     """
 
     def do_POST(self):
@@ -50,8 +45,6 @@ class HTTPMockServer(BaseHTTPRequestHandler):
         """
         self.__route([
             (r"/inspect$", self.__GET_inspect),
-            (r"/inspect/([0-9]+)/body$", self.__GET_inspect_request_body),
-            (r"/inspect/([0-9]+)/headers$", self.__GET_inspect_request_headers)
         ])
 
     def __POST_any(self, parameters):
@@ -63,9 +56,14 @@ class HTTPMockServer(BaseHTTPRequestHandler):
         global history
         request_path = parameters[0]
         request_body = self.rfile.read(int(self.headers['Content-Length']))
-        request = GenericRequest("POST", request_path, self.headers, request_body)
+
+        # Decompress 'deflate' encoded body 
+        if 'Content-Encoding' in self.headers and self.headers['Content-Encoding'] == 'deflate':
+            request_body = zlib.decompress(request_body)
+        
+        request = GenericRequest("POST", request_path, self.headers.as_bytes(), request_body)
         history.add_request(request)
-        return "{}"
+        return bytes()
 
     def __GET_inspect(self, parameters):
         """
@@ -77,33 +75,13 @@ class HTTPMockServer(BaseHTTPRequestHandler):
         inspection_info = []
         for request in history.all_requests():
             inspection_info.append({
-                "request_method": request.http_method,
-                "request_path": request.path,
-                "body_inspection_path": "/inspect/{request_id}/body".format( request_id = request.id ),
-                "headers_inspection_path": "/inspect/{request_id}/headers".format( request_id = request.id )
+                "method": request.http_method,
+                "path": request.path,
+                "body": base64.b64encode(request.http_body).decode("utf-8") , # use Base64 string to not corrupt the JSON
+                "headers": base64.b64encode(request.http_headers).decode("utf-8") # use Base64 string to not corrupt the JSON
             })
-        return json.dumps(inspection_info)
 
-    def __GET_inspect_request_body(self, parameters):
-        """
-        GET /inspect/<request-id>/body
-
-        Returns http body of a generic requests with given id.
-        """
-        global history
-        request_id = parameters[0]
-        return history.request(request_id).http_body
-
-
-    def __GET_inspect_request_headers(self, parameters):
-        """
-        GET /inspect/<request-id>/headers
-
-        Returns http headers of a generic requests with given id.
-        """
-        global history
-        request_id = parameters[0]
-        return history.request(request_id).http_headers
+        return json.dumps(inspection_info).encode("utf-8")
 
     def __route(self, routes):
         try:

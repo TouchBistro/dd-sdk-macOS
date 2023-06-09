@@ -1,45 +1,39 @@
 /*
  * Unless explicitly stated otherwise all files in this repository are licensed under the Apache License Version 2.0.
  * This product includes software developed at Datadog (https://www.datadoghq.com/).
- * Copyright 2019-2020 Datadog, Inc.
+ * Copyright 2019-Present Datadog, Inc.
  */
 
 import XCTest
+import TestUtilities
 @testable import Datadog
 
 class WarningsTests: XCTestCase {
     func testPrintingWarningsOnDifferentConditions() {
-        let previousUserLogger = userLogger
-        defer { userLogger = previousUserLogger }
+        let core = PassthroughCoreMock()
+        core.register(feature: LoggingFeature.mockAny())
 
-        let output = LogOutputMock()
-        userLogger = Logger(
-            logOutput: output,
-            dateProvider: RelativeDateProvider(using: .mockDecember15th2019At10AMUTC()),
-            identifier: "sdk-user"
-        )
+        let dd = DD.mockWith(logger: CoreLoggerMock())
+        defer { dd.reset() }
 
         XCTAssertTrue(warn(if: true, message: "message"))
-        XCTAssertEqual(output.recordedLog, .init(level: .warn, message: "message", date: .mockDecember15th2019At10AMUTC()))
+        XCTAssertEqual(dd.logger.warnLog?.message, "message")
 
-        output.recordedLog = nil
+        dd.logger.reset()
 
         XCTAssertFalse(warn(if: false, message: "message"))
-        XCTAssertNil(output.recordedLog)
+        XCTAssertNil(dd.logger.warnLog)
 
-        output.recordedLog = nil
+        dd.logger.reset()
 
         let failingCast: () -> DDSpan? = { warnIfCannotCast(value: DDNoopSpan()) }
         XCTAssertNil(failingCast())
-        XCTAssertEqual(
-            output.recordedLog,
-            .init(level: .warn, message: "🔥 Using DDNoopSpan while DDSpan was expected.", date: .mockDecember15th2019At10AMUTC())
-        )
+        XCTAssertEqual(dd.logger.warnLog?.message, "🔥 Using DDNoopSpan while DDSpan was expected.")
 
-        output.recordedLog = nil
+        dd.logger.reset()
 
-        let succeedingCast: () -> DDSpan? = { warnIfCannotCast(value: DDSpan.mockAny()) }
+        let succeedingCast: () -> DDSpan? = { warnIfCannotCast(value: DDSpan.mockAny(in: core)) }
         XCTAssertNotNil(succeedingCast())
-        XCTAssertNil(output.recordedLog)
+        XCTAssertNil(dd.logger.warnLog)
     }
 }

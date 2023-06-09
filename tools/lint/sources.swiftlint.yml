@@ -1,6 +1,6 @@
 # Set of Swift Lint rules enforced for Swift code under `Sources/*` directory
 
-whitelist_rules: # we enable lint rules explicitly - only the ones listed below are active
+only_rules: # we enable lint rules explicitly - only the ones listed below are active
   - attributes
   - closing_brace
   - closure_end_indentation
@@ -25,7 +25,6 @@ whitelist_rules: # we enable lint rules explicitly - only the ones listed below 
   - empty_xctest_method
   - explicit_top_level_acl
   - first_where
-  - for_where
   - force_cast
   - force_try
   - force_unwrapping
@@ -56,7 +55,6 @@ whitelist_rules: # we enable lint rules explicitly - only the ones listed below 
   - statement_position
   - switch_case_alignment
   - syntactic_sugar
-  - trailing_closure
   - trailing_newline
   - trailing_semicolon
   - trailing_whitespace
@@ -70,7 +68,10 @@ whitelist_rules: # we enable lint rules explicitly - only the ones listed below 
   - vertical_whitespace_opening_braces
   - void_return
   - xct_specific_matcher
-
+attributes:
+  always_on_line_above:
+    - "@ReadWriteLock"
+    
 custom_rules:
   todo_without_jira: # enforces that all TODO comments must be followed by JIRA reference
     name: "TODO without JIRA"
@@ -79,12 +80,25 @@ custom_rules:
       - comment
     message: "All TODOs must be followed by JIRA reference, for example: \"TODO: RUMM-123\""
     severity: error
+  unsafe_uiapplication_shared: # prevents from using `UIApplication.shared` API
+    included: Sources
+    name: "Unsafe API: `UIApplication.shared`"
+    regex: '(UIApplication.shared)|(UIApplication = .shared)'
+    excluded_match_kinds: 
+      - comment
+      - doccomment
+    message: "`UIApplication.shared` is unavailable in some environments. Check `UIApplication.managedShared`."
+    severity: error
 
 included:
-  - Sources
-  - instrumented-tests/http-server-mock/Sources
-  - tools/api-surface/Sources
-  - tools/api-surface/Fixtures/Sources
-  - dependency-manager-tests/carthage/CTProject
-  - dependency-manager-tests/cocoapods/CPProject
-  - dependency-manager-tests/spm/SPMProject
+  - ../../Sources
+  - ../../DatadogSessionReplay/Sources
+  - ../../Datadog/E2E
+  - ../../instrumented-tests/http-server-mock/Sources
+  - ../../tools/api-surface/Sources
+  - ../../tools/api-surface/Fixtures/Sources
+  - ../../tools/rum-models-generator/Sources
+  - ../../tools/rum-models-generator/Tests/rum-models-generator-coreTests/Fixtures/Output # lint generation fixture
+  - ../../dependency-manager-tests/carthage/CTProject
+  - ../../dependency-manager-tests/cocoapods/CPProject
+  - ../../dependency-manager-tests/spm/SPMProject
