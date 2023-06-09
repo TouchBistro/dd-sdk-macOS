@@ -3,7 +3,7 @@
 import PackageDescription
 
 let package = Package(
-    name: "Datadog",
+    name: "Datadog-macOS",
     platforms: [
         .iOS(.v11),
         .tvOS(.v11),
@@ -11,36 +11,36 @@ let package = Package(
     ],
     products: [
         .library(
-            name: "Datadog",
-            targets: ["Datadog"]
+            name: "Datadog-macOS",
+            targets: ["Datadog-macOS"]
         ),
         .library(
-            name: "DatadogObjc",
-            targets: ["DatadogObjc"]
+            name: "DatadogObjc-macOS",
+            targets: ["DatadogObjc-macOS"]
         ),
         .library(
-            name: "DatadogDynamic",
+            name: "DatadogDynamic-macOS",
             type: .dynamic,
-            targets: ["Datadog"]
+            targets: ["Datadog-macOS"]
         ),
         .library(
-            name: "DatadogDynamicObjc",
+            name: "DatadogDynamicObjc-macOS",
             type: .dynamic,
-            targets: ["DatadogObjc"]
+            targets: ["DatadogObjc-macOS"]
         ),
         .library( // TODO: RUMM-2387 Consider removing explicit linkage variants
-            name: "DatadogStatic",
+            name: "DatadogStatic-macOS",
             type: .static,
-            targets: ["Datadog"]
+            targets: ["Datadog-macOS"]
         ),
         .library( // TODO: RUMM-2387 Consider removing explicit linkage variants
-            name: "DatadogStaticObjc",
+            name: "DatadogStaticObjc-macOS",
             type: .static,
-            targets: ["DatadogObjc"]
+            targets: ["DatadogObjc-macOS"]
         ),
         .library(
-            name: "DatadogCrashReporting",
-            targets: ["DatadogCrashReporting"]
+            name: "DatadogCrashReporting-macOS",
+            targets: ["DatadogCrashReporting-macOS"]
         ),
     ],
     dependencies: [
@@ -48,25 +48,25 @@ let package = Package(
     ],
     targets: [
         .target(
-            name: "Datadog",
+            name: "Datadog-macOS",
             dependencies: [
-                "_Datadog_Private",
+                "_Datadog_Private-macOS",
             ],
             swiftSettings: [.define("SPM_BUILD")]
         ),
         .target(
-            name: "DatadogObjc",
+            name: "DatadogObjc-macOS",
             dependencies: [
-                "Datadog",
+                "Datadog-macOS",
             ]
         ),
         .target(
-            name: "_Datadog_Private"
+            name: "_Datadog_Private-macOS"
         ),
         .target(
-            name: "DatadogCrashReporting",
+            name: "DatadogCrashReporting-macOS",
             dependencies: [
-                "Datadog",
+                "Datadog-macOS",
                 .product(name: "CrashReporter", package: "PLCrashReporter"),
             ]
         )
