@@ -202,7 +202,7 @@ extension FeaturesConfiguration {
             serverDateProvider: configuration.serverDateProvider,
             dateProvider: dateProvider
         )
-#if os(iOS)
+        
         if configuration.loggingEnabled {
             logging = Logging(
                 uploadURL: try ifValid(endpointURLString: logsEndpoint.url),
@@ -212,7 +212,8 @@ extension FeaturesConfiguration {
                 remoteLoggingSampler: Sampler(samplingRate: debugOverride ? 100 : configuration.loggingSamplingRate)
             )
         }
-
+        
+       #if os(iOS)
         if configuration.tracingEnabled {
             tracing = Tracing(
                 uploadURL: try ifValid(endpointURLString: tracesEndpoint.url),
