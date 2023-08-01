@@ -1,6 +1,9 @@
-# Datadog SDK for iOS and tvOS
+# Datadog SDK for macOS
 
-> Swift and Objective-C libraries to interact with Datadog on iOS and tvOS.
+> Swift and Objective-C libraries to interact with Datadog on macOS.
+> In order to compile the sdk for macOS all iOS functionality is wrapped in ```#if os(iOS)```.  The only DD feature availible for macOS is
+> Logging, RUM and tracing is not availible. There a small differences in functionality to support macOS, e.g finding the OS name and hostname use 
+> OS specific apis.
 
 ## Getting Started
 
